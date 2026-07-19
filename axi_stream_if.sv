@@ -13,8 +13,8 @@ module axi_stream_if #(
     
     output logic [DATA_WIDTH_bf16-1:0] dbuf_rx_data,   // iceriye gidecek veri 16-bit (bf16)
     output logic        dbuf_rx_we,     // dbuf'a Write Enable sinyali
-    input  logic        dbuf_rx_full    // dbuf doldu sinyali
-    output logic        internal_rx_last //FSM son data geldi sinyali ver
+    input  logic        dbuf_rx_full,    // dbuf doldu sinyali
+    output logic        internal_rx_last ,//FSM son data geldi sinyali ver
 
 
     output logic [DATA_WIDTH_bf16-1:0] m_axis_tdata,   // output data
@@ -23,10 +23,9 @@ module axi_stream_if #(
     output logic        m_axis_tlast,   // PC Data bitti sinayi ver
 
 
-    input  logic [DATA_WIDTH_bf16-1:0] internal_tx_data,  // FIFO'dan gelen data
+    input  logic [DATA_WIDTH_bf16:0] internal_tx_data,  // FIFO'dan gelen data
     input  logic        internal_tx_valid, // FSM data hazir sinyal
-    output logic        internal_tx_ready, // FIFO data alabilirim sinyali
-    input  logic        internal_tx_last   // FSM data bitti sinyal al
+    output logic        internal_tx_ready // FIFO data alabilirim sinyali
 );
     //f32-bf16
     bf16_comb bf16(
@@ -40,12 +39,12 @@ module axi_stream_if #(
     assign internal_rx_last = s_axis_tlast;
     //TX
     assign m_axis_tvalid = internal_tx_valid;
-    assign m_axis_tlast  = internal_tx_last;
+    assign m_axis_tlast  = internal_tx_data[DATA_WIDTH_bf16];
     assign internal_tx_ready = m_axis_tready;
     //bf16-f32
     bf16_convert fp32(
-        .bf16_in(internal_tx_data),
+        .bf16_in(internal_tx_data[DATA_WIDTH_bf16-1:0]),
         .fp32_out(m_axis_tdata)
-    )
+    );
 
 endmodule
