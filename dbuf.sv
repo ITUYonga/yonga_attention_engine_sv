@@ -5,7 +5,7 @@ module dbuf #(
     input logic clk,
     input logic rst_n,
 
-    input  logic [DATA_WIDTH-1:0] rx_data,
+    input  logic [DATA_WIDTH-1:0] rx_data,  
     input  logic                  rx_we,    // AXI write enable sinyali al
     output logic                  rx_full,  // AXI full sinyali ver
 
