@@ -113,8 +113,18 @@ module bf16_add(
             final_mant = {final_sum[2:0], 4'b0};
             final_expo = expo_shared - 'd4;
         end
-        
-        else begin // if the number is too small then ignore it
+
+        else if(final_sum[2]) begin 
+            final_mant = {final_sum[1:0], 5'b0};
+            final_expo = expo_shared - 'd5;     
+        end
+
+        else if(final_sum[1]) begin 
+            final_mant = {final_sum[0], 6'b0};
+            final_expo = expo_shared - 'd6;     
+        end
+   
+        else begin 
             final_mant = 7'b0; 
             final_expo = 8'b0;
         end
