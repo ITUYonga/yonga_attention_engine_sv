@@ -19,7 +19,7 @@ module dbuf #(
 
     logic write_to_pong; // Durum Kaydedici (0: Ping, 1: Pong)
 
-    logic [ADDR_WIDTH-1:0] write_addr; //adres sayaci
+    logic [ADDR_WIDTH:0] write_addr; //adres sayaci
 
     always_ff @(posedge clk or negedge rst_n) begin
             if (!rst_n) begin
@@ -41,13 +41,13 @@ module dbuf #(
             end
     end
 
-    assign rx_full = (write_addr == {(ADDR_WIDTH){1'b1}});
+    assign rx_full = write_addr[ADDR_WIDTH];
 
-    always_comb begin
+    always_ff@(posedge clk_i) begin
         if (write_to_pong) begin
-            read_data = mem_ping[read_addr];
+            read_data <= mem_ping[read_addr];
         end else begin
-            read_data = mem_pong[read_addr];
+            read_data <= mem_pong[read_addr];
         end
     end
 
