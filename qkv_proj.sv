@@ -29,7 +29,9 @@
 //           y_ready_i:    downstream can accept an output element this cycle
 //   output:
 //           x_ready_o:    module can accept an input element this cycle
-//           y_data_o:     one element of the projected output vector
+//           y_data_o:     one projected output element, bit DATA_WIDTH is
+//                         the source tag (see below), bits DATA_WIDTH-1:0
+//                         are the bf16 value
 //           y_valid_o:    y_data_o is valid this cycle
 //           y_last_o:     y_data_o is the last element of this vector
 //           busy_o:       module is currently loading or computing, only
@@ -48,10 +50,22 @@
 //           for now since this is the first pass and correctness matters
 //           more than resource usage at this point
 //
-//           bf16_mul and bf16_add are currently fully combinational
-//           (0 cycle latency). this design assumes that stays true. if
-//           Belinay adds pipeline stages inside them later this state
-//           machine needs extra wait cycles added in ST_COMPUTE
+//           source tag (bit DATA_WIDTH of every 17-bit bus): Belinay's
+//           bf16_mul/bf16_add (e295872) now carry a 1-bit tag through
+//           their pipeline unchanged, used to tell apart which side fed a
+//           shared resource (agreed with Belinay: 0 = came from my block,
+//           1 = came from hers). x_data_i's incoming tag is not looked at,
+//           whatever this module outputs was computed here, so y_data_o
+//           always gets tagged SRC_TAG_CAN. internal MAC operands are
+//           tagged SRC_TAG_CAN too, it doesn't matter for the math, the
+//           bus width just requires something there.
+//
+//           bf16_mul and bf16_add are no longer 0-cycle combinational
+//           (Belinay's e295872 update made both 2-stage pipelined with a
+//           valid_i/valid_o handshake). the MAC loop below issues valid_i
+//           and waits for valid_o instead of assuming the result is ready
+//           the same cycle, this adds latency per MAC step but is
+//           functionally the same multiply-accumulate as before
 
 module qkv_proj #(
     parameter int DATA_WIDTH = 16,
@@ -73,7 +87,7 @@ module qkv_proj #(
     output logic x_ready_o,
 
     // output vector, streamed out one element per cycle
-    output logic [DATA_WIDTH-1:0] y_data_o,
+    output logic [DATA_WIDTH:0] y_data_o,
     output logic y_valid_o,
     output logic y_last_o,
     input logic y_ready_i,
@@ -85,11 +99,22 @@ module qkv_proj #(
     localparam int OUT_IDX_W = $clog2(D_OUT);
     localparam int W_ADDR_W = $clog2(D_MODEL*D_OUT);
 
-    // the three things this module is doing, one at a time
-    typedef enum logic [1:0] {
-        ST_LOAD,    // waiting for / collecting the input vector
-        ST_COMPUTE, // running the multiply add loop
-        ST_DRAIN    // streaming the finished output vector out
+    // agreed with Belinay: 0 = this value was produced by my (Can's) block,
+    // 1 = produced by hers. only meaningful on a bus shared between us,
+    // see note above.
+    localparam logic SRC_TAG_CAN = 1'b0;
+
+    // the things this module is doing, one at a time. ST_COMPUTE from the
+    // original single-cycle-MAC version is now split into an issue/wait
+    // pair for the multiply and another for the add, since both now take
+    // multiple cycles to produce a result
+    typedef enum logic [2:0] {
+        ST_LOAD,      // waiting for / collecting the input vector
+        ST_MUL_ISSUE, // pulse valid_i into bf16_mul for the current mac step
+        ST_MUL_WAIT,  // wait for bf16_mul's valid_o
+        ST_ADD_ISSUE, // pulse valid_i into bf16_add for the current mac step
+        ST_ADD_WAIT,  // wait for bf16_add's valid_o
+        ST_DRAIN      // streaming the finished output vector out
     } state_t;
 
     state_t state_q, state_d;
@@ -106,6 +131,7 @@ module qkv_proj #(
     logic [OUT_IDX_W-1:0] drain_ptr_q, drain_ptr_d; // which output element we are sending out
 
     logic [DATA_WIDTH-1:0] acc_q, acc_d; // running sum for the current output element
+    logic [DATA_WIDTH-1:0] prod_q, prod_d; // product captured out of bf16_mul, waiting for the add step
 
     // weight memory write, always available, see notes above
     always_ff @(posedge clk_i) begin
@@ -116,22 +142,36 @@ module qkv_proj #(
 
     // mac datapath, reused for every single multiply add in the whole module
     logic [W_ADDR_W-1:0] w_rd_addr;
-    logic [DATA_WIDTH-1:0] mac_a, mac_b, mac_prod, mac_sum;
+    logic [DATA_WIDTH-1:0] mac_a, mac_b;
 
     assign w_rd_addr = out_idx_q * D_MODEL + mac_idx_q;
     assign mac_a = weight_mem[w_rd_addr];
     assign mac_b = x_mem[mac_idx_q];
 
+    logic mul_valid_i, mul_valid_o;
+    logic [DATA_WIDTH:0] mul_result;
+
     bf16_mul u_bf16_mul (
-        .a_in(mac_a),
-        .b_in(mac_b),
-        .result_mul_o(mac_prod)
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        .valid_i(mul_valid_i),
+        .a_in({SRC_TAG_CAN, mac_a}),
+        .b_in({SRC_TAG_CAN, mac_b}),
+        .result_mul_o(mul_result),
+        .valid_o(mul_valid_o)
     );
 
+    logic add_valid_i, add_valid_o;
+    logic [DATA_WIDTH:0] add_result;
+
     bf16_add u_bf16_add (
-        .a_in(acc_q),
-        .b_in(mac_prod),
-        .result_sum_o(mac_sum)
+        .clk_i(clk_i),
+        .rst_ni(rst_ni),
+        .valid_i(add_valid_i),
+        .a_in({SRC_TAG_CAN, acc_q}),
+        .b_in({SRC_TAG_CAN, prod_q}),
+        .result_sum_o(add_result),
+        .valid_o(add_valid_o)
     );
 
     assign busy_o = (state_q != ST_LOAD) || (in_ptr_q != '0);
@@ -145,11 +185,15 @@ module qkv_proj #(
         mac_idx_d = mac_idx_q;
         drain_ptr_d = drain_ptr_q;
         acc_d = acc_q;
+        prod_d = prod_q;
 
         x_ready_o = 1'b0;
         y_valid_o = 1'b0;
         y_last_o = 1'b0;
-        y_data_o = y_mem[drain_ptr_q];
+        y_data_o = {SRC_TAG_CAN, y_mem[drain_ptr_q]};
+
+        mul_valid_i = 1'b0;
+        add_valid_i = 1'b0;
 
         case (state_q)
 
@@ -165,29 +209,52 @@ module qkv_proj #(
                         out_idx_d = '0;
                         mac_idx_d = '0;
                         acc_d = '0;
-                        state_d = ST_COMPUTE;
+                        state_d = ST_MUL_ISSUE;
                     end else begin
                         in_ptr_d = in_ptr_q + 1'b1;
                     end
                 end
             end
 
-            ST_COMPUTE: begin
-                // one mac step per clock cycle, mac_sum is the combinational
-                // result of acc_q + weight*x for the current mac_idx_q
-                if (mac_idx_q == D_MODEL-1) begin
-                    // last multiply add for this output element, done
-                    mac_idx_d = '0;
-                    acc_d = '0;
-                    if (out_idx_q == D_OUT-1) begin
-                        drain_ptr_d = '0;
-                        state_d = ST_DRAIN;
+            // one multiply add per mac_idx_q, split into a mul phase and
+            // an add phase since neither is 0-cycle anymore
+
+            ST_MUL_ISSUE: begin
+                mul_valid_i = 1'b1;
+                state_d = ST_MUL_WAIT;
+            end
+
+            ST_MUL_WAIT: begin
+                if (mul_valid_o) begin
+                    prod_d = mul_result[DATA_WIDTH-1:0];
+                    state_d = ST_ADD_ISSUE;
+                end
+            end
+
+            ST_ADD_ISSUE: begin
+                add_valid_i = 1'b1;
+                state_d = ST_ADD_WAIT;
+            end
+
+            ST_ADD_WAIT: begin
+                if (add_valid_o) begin
+                    if (mac_idx_q == D_MODEL-1) begin
+                        // last multiply add for this output element, done,
+                        // add_result is written into y_mem below
+                        mac_idx_d = '0;
+                        acc_d = '0;
+                        if (out_idx_q == D_OUT-1) begin
+                            drain_ptr_d = '0;
+                            state_d = ST_DRAIN;
+                        end else begin
+                            out_idx_d = out_idx_q + 1'b1;
+                            state_d = ST_MUL_ISSUE;
+                        end
                     end else begin
-                        out_idx_d = out_idx_q + 1'b1;
+                        mac_idx_d = mac_idx_q + 1'b1;
+                        acc_d = add_result[DATA_WIDTH-1:0];
+                        state_d = ST_MUL_ISSUE;
                     end
-                end else begin
-                    mac_idx_d = mac_idx_q + 1'b1;
-                    acc_d = mac_sum;
                 end
             end
 
@@ -217,6 +284,7 @@ module qkv_proj #(
             mac_idx_q <= '0;
             drain_ptr_q <= '0;
             acc_q <= '0;
+            prod_q <= '0;
         end else begin
             state_q <= state_d;
             in_ptr_q <= in_ptr_d;
@@ -224,6 +292,7 @@ module qkv_proj #(
             mac_idx_q <= mac_idx_d;
             drain_ptr_q <= drain_ptr_d;
             acc_q <= acc_d;
+            prod_q <= prod_d;
         end
     end
 
@@ -237,10 +306,10 @@ module qkv_proj #(
     end
 
     // y_mem is written once per finished output element, right when the
-    // mac loop closes out that element
+    // add step for the last mac_idx closes out that element
     always_ff @(posedge clk_i) begin
-        if (state_q == ST_COMPUTE && mac_idx_q == D_MODEL-1) begin
-            y_mem[out_idx_q] <= mac_sum;
+        if (state_q == ST_ADD_WAIT && add_valid_o && mac_idx_q == D_MODEL-1) begin
+            y_mem[out_idx_q] <= add_result[DATA_WIDTH-1:0];
         end
     end
 
