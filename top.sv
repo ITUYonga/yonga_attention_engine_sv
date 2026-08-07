@@ -12,62 +12,53 @@ module attention_engine_top #(
     input  logic rst_n,
     input  logic select_bf16,
 
-    // AXI-STREAM GİRİŞ (FP32)
+    // --- AXI-STREAM GİRİŞ (FP32) ---
     input  logic [DATA_WIDTH_f32-1:0] s_axis_tdata,
     input  logic                      s_axis_tvalid,
     output logic                      s_axis_tready,
     input  logic                      s_axis_tlast,
 
-    // AXI-STREAM ÇIKIŞ (FP32)
+    // --- AXI-STREAM ÇIKIŞ (FP32) ---
     output logic [DATA_WIDTH_f32-1:0] m_axis_tdata,
     output logic                      m_axis_tvalid,
     input  logic                      m_axis_tready,
     output logic                      m_axis_tlast,
 
-    // AĞIRLIK YÜKLEME (AXI-Lite)
+    // --- AĞIRLIK YÜKLEME (AXI-Lite) ---
     input  logic [DATA_WIDTH_bf16-1:0] w_data_i,
     input  logic [$clog2(D_MODEL*D_MODEL)-1:0] w_addr_i,
     input  logic                       w_we_q, w_we_k, w_we_v, w_we_o
 );
 
     // =========================================================
-    // İÇ KABLOLAR (Otoyol tamamen 17-Bit)
+    // İÇ KABLOLAR (Otoyol - 17-Bit)
     // =========================================================
-    
-    // Dbuf <-> Streamer
     logic [DBUF_ADDR_WIDTH-1:0] dbuf_read_addr;
     logic [DATA_WIDTH_bf16-1:0] dbuf_read_data; 
     logic dbuf_v, dbuf_r, dbuf_last;
     logic [DATA_WIDTH_bf16-1:0] dbuf_d; 
     
-    // RoPE Pozisyon Sayacı
     logic [$clog2(MAX_POS)-1:0] pos_cnt;
 
-    // Modül A (Yönlendirici) -> Modül B (W0 Dönüş Hattı)
     logic a_w0_v, a_w0_r;
     logic [16:0] a_w0_d; 
 
-    // Modül B Çıkışları (Q, K, V)
     logic [16:0] q_proj_d, k_proj_d, v_proj_d;
     logic q_proj_v, k_proj_v, v_proj_v;
     logic q_proj_last, k_proj_last, v_proj_last;
     logic q_proj_r, k_proj_r, v_proj_r;
 
-    // Nihai Çıkış (Modül B -> FIFO)
     logic [16:0] out_proj_d;
     logic out_proj_v, out_proj_last, out_proj_r;
 
-    // URAM Okuma Verileri ve Sinyalleri
     logic q_uram_ren, k_uram_ren, v_uram_ren;
     logic [DBUF_ADDR_WIDTH-1:0] q_uram_raddr, k_uram_raddr, v_uram_raddr;
     logic q_uram_rvalid, k_uram_rvalid, v_uram_rvalid;
     logic [16:0] q_rdata, k_rdata, v_rdata; 
 
-    // Modül C (Softmax) -> Modül A Hakemi
     logic c_v, c_r; 
     logic [16:0] c_d; 
 
-    // Modül A Bağlantıları
     logic a_in_v, a_in_r; 
     logic [16:0] a_in_q, a_in_k; 
     logic a_out_v, a_out_r; 
@@ -75,9 +66,68 @@ module attention_engine_top #(
     logic c_in_v, c_in_r;
     logic [16:0] c_in_d;
 
-    // FIFO Bağlantıları
     logic fifo_out_v, fifo_out_r; 
     logic [16:0] fifo_out_d; 
+
+    // =========================================================
+    // 0. ANA ORKESTRA ŞEFİ (TOP-LEVEL FSM)
+    // =========================================================
+    typedef enum logic [2:0] {
+        ST_IDLE,
+        ST_WAIT_PROJ,    // Modül B'nin Q,K,V üretmesini bekle
+        ST_TRIG_QK,      // QxK işlemi için URAM okumasını başlat
+        ST_WAIT_SOFTMAX, // Softmax'ten ilk sonucun damlamasını bekle
+        ST_TRIG_SV,      // Softmax x V işlemi için URAM okumasını başlat
+        ST_WAIT_DONE     // Modül B'nin çıkış (W0) projeksiyonunu bitirmesini bekle
+    } top_state_t;
+
+    top_state_t top_state;
+    logic start_qk, start_sv;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            top_state <= ST_IDLE;
+            start_qk  <= 1'b0;
+            start_sv  <= 1'b0;
+        end else begin
+            start_qk <= 1'b0; // Pulse (Tek vuruşluk sinyal)
+            start_sv <= 1'b0; // Pulse
+
+            case (top_state)
+                ST_IDLE: begin
+                    if (swap_buffers) top_state <= ST_WAIT_PROJ;
+                end
+                
+                ST_WAIT_PROJ: begin
+                    // Q, K, V paralel üretilir. Herhangi birinin son verisini yakalamak yeterlidir.
+                    if (q_proj_v && q_proj_last && q_proj_r) begin
+                        top_state <= ST_TRIG_QK;
+                    end
+                end
+                
+                ST_TRIG_QK: begin
+                    start_qk  <= 1'b1; 
+                    top_state <= ST_WAIT_SOFTMAX;
+                end
+                
+                ST_WAIT_SOFTMAX: begin
+                    // Softmax bloğu ilk sonucu otoyola bastığında (c_v = 1), hemen V matrisini okumaya başla
+                    // (Hakem bloğu V matrisi gelene kadar Softmax'i 1 cycle otomatik duraklatacaktır)
+                    if (c_v) begin
+                        start_sv  <= 1'b1;
+                        top_state <= ST_WAIT_DONE;
+                    end
+                end
+                
+                ST_WAIT_DONE: begin
+                    // W0 projeksiyonunun son verisi FIFO'ya girdiğinde döngü başa sarar
+                    if (out_proj_v && out_proj_last && out_proj_r) begin
+                        top_state <= ST_IDLE;
+                    end
+                end
+            endcase
+        end
+    end
 
     // =========================================================
     // 1. AXI, DBUF VE STREAMER
@@ -102,7 +152,6 @@ module attention_engine_top #(
         .read_addr(dbuf_read_addr), .read_data(dbuf_read_data), .swap_buffers(swap_buffers)
     );
 
-    // Yeni Streamer: Veriyi sadece 1 kere okur!
     dbuf_read_streamer #(.DATA_WIDTH(16), .ADDR_WIDTH(DBUF_ADDR_WIDTH), .SEQ_LENGTH(MATRIX_SIZE), .D_MODEL(D_MODEL)) u_dbuf_streamer (
         .clk(clk), .rst_n(rst_n), .swap_buffers(swap_buffers),
         .read_addr(dbuf_read_addr), .read_data(dbuf_read_data),
@@ -110,7 +159,7 @@ module attention_engine_top #(
     );
 
     // =========================================================
-    // 2. RoPE POZİSYON SAYACI (Token geldikçe artar)
+    // 2. RoPE POZİSYON SAYACI
     // =========================================================
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -122,7 +171,7 @@ module attention_engine_top #(
     end
 
     // =========================================================
-    // 3. CAN'IN PARALEL MODÜL B'Sİ (projection_block)
+    // 3. MODÜL B (projection_block)
     // =========================================================
     projection_block #(
         .DATA_WIDTH(16), .D_MODEL(D_MODEL), .D_OUT_Q(D_MODEL), .D_OUT_KV(D_MODEL),
@@ -130,22 +179,18 @@ module attention_engine_top #(
     ) u_projection_block (
         .clk_i(clk), .rst_ni(rst_n),
 
-        // Ağırlık Yüklemeleri
         .wq_data_i(w_data_i), .wq_addr_i(w_addr_i), .wq_we_i(w_we_q),
         .wk_data_i(w_data_i), .wk_addr_i(w_addr_i), .wk_we_i(w_we_k),
         .wv_data_i(w_data_i), .wv_addr_i(w_addr_i), .wv_we_i(w_we_v),
         .wo_data_i(w_data_i), .wo_addr_i(w_addr_i), .wo_we_i(w_we_o),
 
-        // Taze Token Girişi (Tag 0 eklenerek 17 bit yapılıyor)
         .token_data_i({1'b0, dbuf_d}), 
         .token_valid_i(dbuf_v),
         .token_last_i(dbuf_last),
         .token_ready_o(dbuf_r),
 
-        // ROPE Pozisyonu
         .pos_i(pos_cnt),
 
-        // Q, K, V Çıkışları (Doğrudan URAM'e)
         .q_data_o(q_proj_d), .q_valid_o(q_proj_v), .q_last_o(q_proj_last), .q_ready_i(q_proj_r),
         .k_data_o(k_proj_d), .k_valid_o(k_proj_v), .k_last_o(k_proj_last), .k_ready_i(k_proj_r),
         .v_data_o(v_proj_d), .v_valid_o(v_proj_v), .v_last_o(v_proj_last), .v_ready_i(v_proj_r),
@@ -153,13 +198,11 @@ module attention_engine_top #(
         .q_head_idx_i('0),
         .kv_head_idx_o(),
 
-        // W0 DÖNÜŞ HATTI DÜZELTİLDİ: Softmax yerine Modül A'dan (a_w0_d) beslenir!
         .attn_data_i(a_w0_d), 
         .attn_valid_i(a_w0_v),
         .attn_last_i(1'b0), 
         .attn_ready_o(a_w0_r),
 
-        // Nihai Çıkış
         .out_data_o(out_proj_d), 
         .out_valid_o(out_proj_v), 
         .out_last_o(out_proj_last), 
@@ -190,16 +233,13 @@ module attention_engine_top #(
         .rd_en(v_uram_ren), .rd_addr(v_uram_raddr), .rdata(v_rdata), .rvalid(v_uram_rvalid)
     );
 
-    logic uram_read_busy;
-    // start_qk ve start_sv sinyalleri top-level kontrolcünüzden (FSM) tetiklenecek. 
-    // Şimdilik test için dışarıdan bağlanacak şekilde varsayıyoruz.
     uram_read_controller #(.ADDR_WIDTH(DBUF_ADDR_WIDTH), .MATRIX_SIZE(MATRIX_SIZE)) u_uram_ctrl (
         .clk(clk), .rst_n(rst_n),
-        .start_qk(1'b0), .start_sv(1'b0), // FSM'e bağlanacak
+        .start_qk(start_qk), .start_sv(start_sv), // FSM'den gelen otonom tetikleyiciler
         .q_ren(q_uram_ren), .q_raddr(q_uram_raddr),
         .k_ren(k_uram_ren), .k_raddr(k_uram_raddr),
         .v_ren(v_uram_ren), .v_raddr(v_uram_raddr),
-        .busy(uram_read_busy)
+        .busy()
     );
 
     // =========================================================
@@ -233,9 +273,9 @@ module attention_engine_top #(
     // =========================================================
     // 7. MODÜL C (SOFTMAX)
     // =========================================================
-    mod_c u_mod_c_softmax (
+    scale_mask u_mod_c_softmax (
         .clk(clk), .rst_n(rst_n),
-        .s_axis_tdata(c_in_d[15:0]), // Etiketsiz ham veri
+        .s_axis_tdata(c_in_d[15:0]), 
         .s_axis_tvalid(c_in_v), 
         .s_axis_tready(c_in_r),
         
@@ -243,8 +283,6 @@ module attention_engine_top #(
         .m_axis_tvalid(c_v), 
         .m_axis_tready(c_r)
     );
-    // Softmax'ten çıkan veri V ile çarpılmak üzere Modül A'ya geri beslenir.
-    // (A output router, 1 numaralı etiketi W0'a gitmesi için kullanır)
     assign c_d[16] = 1'b1; 
 
     // =========================================================
