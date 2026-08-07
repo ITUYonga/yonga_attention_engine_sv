@@ -3,7 +3,7 @@ module axi_stream_if #(
     parameter DATA_WIDTH_f32 = 32
 
 )(
-    input logic select_bf16;
+    input logic select_bf16,
 
     input  logic [DATA_WIDTH_f32-1:0] s_axis_tdata,   // data in
     input  logic        s_axis_tvalid,  // pc data var sinyali al

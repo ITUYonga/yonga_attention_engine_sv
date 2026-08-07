@@ -43,7 +43,7 @@ module dbuf #(
 
     assign rx_full = write_addr[ADDR_WIDTH];
 
-    always_ff@(posedge clk_i) begin
+    always_ff@(posedge clk ) begin
         if (write_to_pong) begin
             read_data <= mem_ping[read_addr];
         end else begin
