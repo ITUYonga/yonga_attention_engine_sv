@@ -3,7 +3,7 @@
 module attention_engine_top #(
     parameter DATA_WIDTH_f32  = 32,
     parameter DATA_WIDTH_bf16 = 16,
-    parameter DBUF_ADDR_WIDTH = 10,
+    parameter DBUF_ADDR_WIDTH = 10,  
     parameter D_MODEL         = 64,  
     parameter MATRIX_SIZE     = 1024,
     parameter MAX_POS         = 512
@@ -12,26 +12,26 @@ module attention_engine_top #(
     input  logic rst_n,
     input  logic select_bf16,
 
-    // --- AXI-STREAM GİRİŞ (FP32) ---
+    // AXI-STREAM GİRİŞ (FP32)
     input  logic [DATA_WIDTH_f32-1:0] s_axis_tdata,
     input  logic                      s_axis_tvalid,
     output logic                      s_axis_tready,
     input  logic                      s_axis_tlast,
 
-    // --- AXI-STREAM ÇIKIŞ (FP32) ---
+    // AXI-STREAM ÇIKIŞ (FP32)
     output logic [DATA_WIDTH_f32-1:0] m_axis_tdata,
     output logic                      m_axis_tvalid,
     input  logic                      m_axis_tready,
     output logic                      m_axis_tlast,
 
-    // --- AĞIRLIK YÜKLEME (AXI-Lite) ---
+    // AĞIRLIK YÜKLEME (AXI-Lite)
     input  logic [DATA_WIDTH_bf16-1:0] w_data_i,
     input  logic [$clog2(D_MODEL*D_MODEL)-1:0] w_addr_i,
     input  logic                       w_we_q, w_we_k, w_we_v, w_we_o
 );
 
     // =========================================================
-    // İÇ KABLOLAR (Otoyol - 17-Bit)
+    // İÇ KABLOLAR
     // =========================================================
     logic [DBUF_ADDR_WIDTH-1:0] dbuf_read_addr;
     logic [DATA_WIDTH_bf16-1:0] dbuf_read_data; 
@@ -39,7 +39,6 @@ module attention_engine_top #(
     logic [DATA_WIDTH_bf16-1:0] dbuf_d; 
     
     logic [$clog2(MAX_POS)-1:0] pos_cnt;
-
     logic a_w0_v, a_w0_r;
     logic [16:0] a_w0_d; 
 
@@ -52,13 +51,15 @@ module attention_engine_top #(
     logic out_proj_v, out_proj_last, out_proj_r;
 
     logic q_uram_ren, k_uram_ren, v_uram_ren;
-    logic [DBUF_ADDR_WIDTH-1:0] q_uram_raddr, k_uram_raddr, v_uram_raddr;
+    // URAM Adresleri Ping-Pong için 1 bit genişletildi (Örn: 11 bit)
+    logic [DBUF_ADDR_WIDTH:0] uram_waddr; 
+    logic [DBUF_ADDR_WIDTH:0] q_uram_raddr, k_uram_raddr, v_uram_raddr;
+    
     logic q_uram_rvalid, k_uram_rvalid, v_uram_rvalid;
     logic [16:0] q_rdata, k_rdata, v_rdata; 
 
     logic c_v, c_r; 
     logic [16:0] c_d; 
-
     logic a_in_v, a_in_r; 
     logic [16:0] a_in_q, a_in_k; 
     logic a_out_v, a_out_r; 
@@ -68,66 +69,6 @@ module attention_engine_top #(
 
     logic fifo_out_v, fifo_out_r; 
     logic [16:0] fifo_out_d; 
-
-    // =========================================================
-    // 0. ANA ORKESTRA ŞEFİ (TOP-LEVEL FSM)
-    // =========================================================
-    typedef enum logic [2:0] {
-        ST_IDLE,
-        ST_WAIT_PROJ,    // Modül B'nin Q,K,V üretmesini bekle
-        ST_TRIG_QK,      // QxK işlemi için URAM okumasını başlat
-        ST_WAIT_SOFTMAX, // Softmax'ten ilk sonucun damlamasını bekle
-        ST_TRIG_SV,      // Softmax x V işlemi için URAM okumasını başlat
-        ST_WAIT_DONE     // Modül B'nin çıkış (W0) projeksiyonunu bitirmesini bekle
-    } top_state_t;
-
-    top_state_t top_state;
-    logic start_qk, start_sv;
-
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            top_state <= ST_IDLE;
-            start_qk  <= 1'b0;
-            start_sv  <= 1'b0;
-        end else begin
-            start_qk <= 1'b0; // Pulse (Tek vuruşluk sinyal)
-            start_sv <= 1'b0; // Pulse
-
-            case (top_state)
-                ST_IDLE: begin
-                    if (swap_buffers) top_state <= ST_WAIT_PROJ;
-                end
-                
-                ST_WAIT_PROJ: begin
-                    // Q, K, V paralel üretilir. Herhangi birinin son verisini yakalamak yeterlidir.
-                    if (q_proj_v && q_proj_last && q_proj_r) begin
-                        top_state <= ST_TRIG_QK;
-                    end
-                end
-                
-                ST_TRIG_QK: begin
-                    start_qk  <= 1'b1; 
-                    top_state <= ST_WAIT_SOFTMAX;
-                end
-                
-                ST_WAIT_SOFTMAX: begin
-                    // Softmax bloğu ilk sonucu otoyola bastığında (c_v = 1), hemen V matrisini okumaya başla
-                    // (Hakem bloğu V matrisi gelene kadar Softmax'i 1 cycle otomatik duraklatacaktır)
-                    if (c_v) begin
-                        start_sv  <= 1'b1;
-                        top_state <= ST_WAIT_DONE;
-                    end
-                end
-                
-                ST_WAIT_DONE: begin
-                    // W0 projeksiyonunun son verisi FIFO'ya girdiğinde döngü başa sarar
-                    if (out_proj_v && out_proj_last && out_proj_r) begin
-                        top_state <= ST_IDLE;
-                    end
-                end
-            endcase
-        end
-    end
 
     // =========================================================
     // 1. AXI, DBUF VE STREAMER
@@ -171,75 +112,63 @@ module attention_engine_top #(
     end
 
     // =========================================================
-    // 3. MODÜL B (projection_block)
+    // 3. MODÜL B (projection_block) -> HİÇ DURMAZ!
     // =========================================================
     projection_block #(
         .DATA_WIDTH(16), .D_MODEL(D_MODEL), .D_OUT_Q(D_MODEL), .D_OUT_KV(D_MODEL),
         .MAX_POS(MAX_POS), .NUM_Q_HEADS(8), .NUM_KV_HEADS(2)
     ) u_projection_block (
         .clk_i(clk), .rst_ni(rst_n),
-
         .wq_data_i(w_data_i), .wq_addr_i(w_addr_i), .wq_we_i(w_we_q),
         .wk_data_i(w_data_i), .wk_addr_i(w_addr_i), .wk_we_i(w_we_k),
         .wv_data_i(w_data_i), .wv_addr_i(w_addr_i), .wv_we_i(w_we_v),
         .wo_data_i(w_data_i), .wo_addr_i(w_addr_i), .wo_we_i(w_we_o),
-
-        .token_data_i({1'b0, dbuf_d}), 
-        .token_valid_i(dbuf_v),
-        .token_last_i(dbuf_last),
-        .token_ready_o(dbuf_r),
-
+        
+        .token_data_i({1'b0, dbuf_d}), .token_valid_i(dbuf_v), .token_last_i(dbuf_last), .token_ready_o(dbuf_r),
         .pos_i(pos_cnt),
-
+        
         .q_data_o(q_proj_d), .q_valid_o(q_proj_v), .q_last_o(q_proj_last), .q_ready_i(q_proj_r),
         .k_data_o(k_proj_d), .k_valid_o(k_proj_v), .k_last_o(k_proj_last), .k_ready_i(k_proj_r),
         .v_data_o(v_proj_d), .v_valid_o(v_proj_v), .v_last_o(v_proj_last), .v_ready_i(v_proj_r),
 
-        .q_head_idx_i('0),
-        .kv_head_idx_o(),
-
-        .attn_data_i(a_w0_d), 
-        .attn_valid_i(a_w0_v),
-        .attn_last_i(1'b0), 
-        .attn_ready_o(a_w0_r),
-
-        .out_data_o(out_proj_d), 
-        .out_valid_o(out_proj_v), 
-        .out_last_o(out_proj_last), 
-        .out_ready_i(out_proj_r)
+        .q_head_idx_i('0), .kv_head_idx_o(),
+        
+        .attn_data_i(a_w0_d), .attn_valid_i(a_w0_v), .attn_last_i(1'b0), .attn_ready_o(a_w0_r),
+        .out_data_o(out_proj_d), .out_valid_o(out_proj_v), .out_last_o(out_proj_last), .out_ready_i(out_proj_r)
     );
 
     // =========================================================
-    // 4. URAM BELLEKLERİ VE OKUMA KONTROLCÜSÜ
+    // 4. URAM PING-PONG YÖNETİCİSİ VE BELLEKLER
     // =========================================================
     logic q_uram_rdy, k_uram_rdy, v_uram_rdy;
     assign q_proj_r = q_uram_rdy;
     assign k_proj_r = k_uram_rdy;
     assign v_proj_r = v_uram_rdy;
 
-    uram_memory #(.DATA_WIDTH(17), .ADDR_WIDTH(DBUF_ADDR_WIDTH), .DEPTH(MATRIX_SIZE)) u_uram_q (
-        .clk(clk), .rst_n(rst_n), 
-        .wr_en(q_proj_v), .wr_data(q_proj_d), .ready(q_uram_rdy), 
-        .rd_en(q_uram_ren), .rd_addr(q_uram_raddr), .rdata(q_rdata), .rvalid(q_uram_rvalid)
-    );
-    uram_memory #(.DATA_WIDTH(17), .ADDR_WIDTH(DBUF_ADDR_WIDTH), .DEPTH(MATRIX_SIZE)) u_uram_k (
-        .clk(clk), .rst_n(rst_n), 
-        .wr_en(k_proj_v), .wr_data(k_proj_d), .ready(k_uram_rdy), 
-        .rd_en(k_uram_ren), .rd_addr(k_uram_raddr), .rdata(k_rdata), .rvalid(k_uram_rvalid)
-    );
-    uram_memory #(.DATA_WIDTH(17), .ADDR_WIDTH(DBUF_ADDR_WIDTH), .DEPTH(MATRIX_SIZE)) u_uram_v (
-        .clk(clk), .rst_n(rst_n), 
-        .wr_en(v_proj_v), .wr_data(v_proj_d), .ready(v_uram_rdy), 
-        .rd_en(v_uram_ren), .rd_addr(v_uram_raddr), .rdata(v_rdata), .rvalid(v_uram_rvalid)
-    );
-
-    uram_read_controller #(.ADDR_WIDTH(DBUF_ADDR_WIDTH), .MATRIX_SIZE(MATRIX_SIZE)) u_uram_ctrl (
+    uram_pingpong_controller #(.ADDR_WIDTH(DBUF_ADDR_WIDTH), .MATRIX_SIZE(MATRIX_SIZE)) u_uram_ctrl (
         .clk(clk), .rst_n(rst_n),
-        .start_qk(start_qk), .start_sv(start_sv), // FSM'den gelen otonom tetikleyiciler
+        .write_valid(q_proj_v), .write_last(q_proj_last), .waddr(uram_waddr),
+        .softmax_valid(c_v), 
         .q_ren(q_uram_ren), .q_raddr(q_uram_raddr),
         .k_ren(k_uram_ren), .k_raddr(k_uram_raddr),
-        .v_ren(v_uram_ren), .v_raddr(v_uram_raddr),
-        .busy()
+        .v_ren(v_uram_ren), .v_raddr(v_uram_raddr)
+    );
+
+    // Derinlik 2 katına çıktı! (Ping-Pong için)
+    uram_memory #(.DATA_WIDTH(17), .ADDR_WIDTH(DBUF_ADDR_WIDTH+1), .DEPTH(2*MATRIX_SIZE)) u_uram_q (
+        .clk(clk), .rst_n(rst_n), 
+        .wr_en(q_proj_v), .wr_addr(uram_waddr), .wr_data(q_proj_d), .ready(q_uram_rdy), 
+        .rd_en(q_uram_ren), .rd_addr(q_uram_raddr), .rdata(q_rdata), .rvalid(q_uram_rvalid)
+    );
+    uram_memory #(.DATA_WIDTH(17), .ADDR_WIDTH(DBUF_ADDR_WIDTH+1), .DEPTH(2*MATRIX_SIZE)) u_uram_k (
+        .clk(clk), .rst_n(rst_n), 
+        .wr_en(k_proj_v), .wr_addr(uram_waddr), .wr_data(k_proj_d), .ready(k_uram_rdy), 
+        .rd_en(k_uram_ren), .rd_addr(k_uram_raddr), .rdata(k_rdata), .rvalid(k_uram_rvalid)
+    );
+    uram_memory #(.DATA_WIDTH(17), .ADDR_WIDTH(DBUF_ADDR_WIDTH+1), .DEPTH(2*MATRIX_SIZE)) u_uram_v (
+        .clk(clk), .rst_n(rst_n), 
+        .wr_en(v_proj_v), .wr_addr(uram_waddr), .wr_data(v_proj_d), .ready(v_uram_rdy), 
+        .rd_en(v_uram_ren), .rd_addr(v_uram_raddr), .rdata(v_rdata), .rvalid(v_uram_rvalid)
     );
 
     // =========================================================
@@ -278,7 +207,6 @@ module attention_engine_top #(
         .s_axis_tdata(c_in_d[15:0]), 
         .s_axis_tvalid(c_in_v), 
         .s_axis_tready(c_in_r),
-        
         .m_axis_tdata(c_d[15:0]), 
         .m_axis_tvalid(c_v), 
         .m_axis_tready(c_r)
