@@ -32,7 +32,11 @@
 //           pos_i:        position of the token this vector belongs to,
 //                         sampled once at the start of a new vector, has
 //                         to stay valid for that first cycle only
-//           x_data_i:     one element of the input vector
+//           x_data_i:     one element of the input vector, 17 bits wide
+//                         (bit DATA_WIDTH is the source tag from upstream,
+//                         bits DATA_WIDTH-1:0 are the bf16 value). the
+//                         tag is stripped on entry and not used internally,
+//                         this module tags its own outputs with SRC_TAG_CAN
 //           x_valid_i:    x_data_i is valid this cycle
 //           x_last_i:     x_data_i is the last element of this vector
 //           y_ready_i:    downstream can accept an output element
@@ -61,7 +65,9 @@
 //           bf16_mul/bf16_add (e295872) now carry a 1-bit tag through
 //           their pipeline unchanged, used to tell apart which side fed a
 //           shared resource (agreed with Belinay: 0 = came from my block,
-//           1 = came from hers). whatever this module outputs was
+//           1 = came from hers). x_data_i now arrives as 17 bits but the
+//           incoming tag is stripped immediately (only the lower 16 bits
+//           are stored in x_mem). whatever this module outputs was
 //           computed here, so y_data_o always gets tagged SRC_TAG_CAN.
 //           internal mul/add operands are tagged SRC_TAG_CAN too, the
 //           value doesn't matter for the math, the bus width just
@@ -76,6 +82,15 @@
 //           steps that need a subtract/add (mstep 1 and 3) go on to issue
 //           an add and wait for that valid_o too, instead of assuming
 //           either result is ready the same cycle it was issued
+//
+//   changelog:
+//           07.08.2026 - x_data_i widened from [DATA_WIDTH-1:0] to
+//                        [DATA_WIDTH:0] (16-bit -> 17-bit) so the port
+//                        width matches the 17-bit buses used everywhere
+//                        else in the design (Belinay's bf16 units, dbuf,
+//                        axi_stream_if). the incoming tag bit is stripped
+//                        at x_mem write time, internal computation stays
+//                        16-bit, output is re-tagged with SRC_TAG_CAN.
 
 module rope #(
     parameter int DATA_WIDTH = 16,
@@ -87,7 +102,10 @@ module rope #(
 
     input logic [$clog2(MAX_POS)-1:0] pos_i,
 
-    input logic [DATA_WIDTH-1:0] x_data_i,
+    // input vector, streamed in one element per cycle
+    // [DATA_WIDTH]     = source tag from upstream (stripped, not used)
+    // [DATA_WIDTH-1:0] = bf16 value (stored in x_mem)
+    input logic [DATA_WIDTH:0] x_data_i,
     input logic x_valid_i,
     input logic x_last_i,
     output logic x_ready_o,
@@ -355,10 +373,12 @@ module rope #(
         end
     end
 
-    // fills x_mem, kept in its own block so the case above stays readable
+    // x_mem write: strip the source tag (bit DATA_WIDTH), store only the
+    // 16-bit bf16 value. the tag carried by the upstream bus is not
+    // meaningful inside this module, we re-tag everything on output.
     always_ff @(posedge clk_i) begin
         if (state_q == ST_LOAD && x_valid_i) begin
-            x_mem[in_ptr_q] <= x_data_i;
+            x_mem[in_ptr_q] <= x_data_i[DATA_WIDTH-1:0];
         end
     end
 

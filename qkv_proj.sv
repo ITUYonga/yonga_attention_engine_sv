@@ -23,7 +23,12 @@
 //           w_data_i:     one weight value to write into the weight memory
 //           w_addr_i:     address of the weight value being written
 //           w_we_i:       write enable for the weight memory
-//           x_data_i:     one element of the input token vector
+//           x_data_i:     one element of the input token vector, 17 bits
+//                         wide (bit DATA_WIDTH is the source tag from
+//                         upstream, bits DATA_WIDTH-1:0 are the bf16
+//                         value). the tag is stripped on entry and not
+//                         used internally, this module tags its own
+//                         outputs with SRC_TAG_CAN
 //           x_valid_i:    x_data_i is valid this cycle
 //           x_last_i:     x_data_i is the last element of this vector
 //           y_ready_i:    downstream can accept an output element this cycle
@@ -54,11 +59,13 @@
 //           bf16_mul/bf16_add (e295872) now carry a 1-bit tag through
 //           their pipeline unchanged, used to tell apart which side fed a
 //           shared resource (agreed with Belinay: 0 = came from my block,
-//           1 = came from hers). x_data_i's incoming tag is not looked at,
-//           whatever this module outputs was computed here, so y_data_o
-//           always gets tagged SRC_TAG_CAN. internal MAC operands are
-//           tagged SRC_TAG_CAN too, it doesn't matter for the math, the
-//           bus width just requires something there.
+//           1 = came from hers). x_data_i now arrives as 17 bits but the
+//           incoming tag is stripped immediately (only the lower 16 bits
+//           are stored in x_mem). whatever this module outputs was
+//           computed here, so y_data_o always gets tagged SRC_TAG_CAN.
+//           internal MAC operands are tagged SRC_TAG_CAN too, it doesn't
+//           matter for the math, the bus width just requires something
+//           there.
 //
 //           bf16_mul and bf16_add are no longer 0-cycle combinational
 //           (Belinay's e295872 update made both 2-stage pipelined with a
@@ -66,6 +73,15 @@
 //           and waits for valid_o instead of assuming the result is ready
 //           the same cycle, this adds latency per MAC step but is
 //           functionally the same multiply-accumulate as before
+//
+//   changelog:
+//           07.08.2026 - x_data_i widened from [DATA_WIDTH-1:0] to
+//                        [DATA_WIDTH:0] (16-bit -> 17-bit) so the port
+//                        width matches the 17-bit buses used everywhere
+//                        else in the design (Belinay's bf16 units, dbuf,
+//                        axi_stream_if). the incoming tag bit is stripped
+//                        at x_mem write time, internal computation stays
+//                        16-bit, output is re-tagged with SRC_TAG_CAN.
 
 module qkv_proj #(
     parameter int DATA_WIDTH = 16,
@@ -81,7 +97,9 @@ module qkv_proj #(
     input logic w_we_i,
 
     // input token vector, streamed in one element per cycle
-    input logic [DATA_WIDTH-1:0] x_data_i,
+    // [DATA_WIDTH]   = source tag from upstream (stripped, not used)
+    // [DATA_WIDTH-1:0] = bf16 value (stored in x_mem)
+    input logic [DATA_WIDTH:0] x_data_i,
     input logic x_valid_i,
     input logic x_last_i,
     output logic x_ready_o,
@@ -200,10 +218,6 @@ module qkv_proj #(
             ST_LOAD: begin
                 x_ready_o = 1'b1;
                 if (x_valid_i) begin
-                    // note, this write happens combinationally into x_mem
-                    // in the ST_LOAD handling below with a nonblocking
-                    // assign outside this always_comb block, see the
-                    // always_ff for x_mem further down
                     if (x_last_i) begin
                         in_ptr_d = '0;
                         out_idx_d = '0;
@@ -215,9 +229,6 @@ module qkv_proj #(
                     end
                 end
             end
-
-            // one multiply add per mac_idx_q, split into a mul phase and
-            // an add phase since neither is 0-cycle anymore
 
             ST_MUL_ISSUE: begin
                 mul_valid_i = 1'b1;
@@ -239,8 +250,6 @@ module qkv_proj #(
             ST_ADD_WAIT: begin
                 if (add_valid_o) begin
                     if (mac_idx_q == D_MODEL-1) begin
-                        // last multiply add for this output element, done,
-                        // add_result is written into y_mem below
                         mac_idx_d = '0;
                         acc_d = '0;
                         if (out_idx_q == D_OUT-1) begin
@@ -296,12 +305,12 @@ module qkv_proj #(
         end
     end
 
-    // x_mem is written straight from the input handshake, kept in its own
-    // always_ff instead of the big case above just to keep that block
-    // readable
+    // x_mem write: strip the source tag (bit DATA_WIDTH), store only the
+    // 16-bit bf16 value. the tag carried by the upstream bus is not
+    // meaningful inside this module, we re-tag everything on output.
     always_ff @(posedge clk_i) begin
         if (state_q == ST_LOAD && x_valid_i) begin
-            x_mem[in_ptr_q] <= x_data_i;
+            x_mem[in_ptr_q] <= x_data_i[DATA_WIDTH-1:0];
         end
     end
 

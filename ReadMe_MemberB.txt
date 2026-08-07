@@ -235,6 +235,40 @@
 
 	--------------------------------------------------------------------------------------------------------------------------------------
 
+	"projection_block.sv" [YENİ - 07.08.2026, Taha'ya teslim edilecek]
+
+	Fonksiyon Tanımı:
+
+		Üç modülümü (qkv_proj x4, rope x2, gqa_mapper x1) tek kutuda toplayan üst seviye wrapper. Taha ile
+		WhatsApp'ta netleşen karar şuydu: Taha'ya "büyük kutu, 5 sabit çıkış, routing yok" vermem gerekiyormuş,
+		o "hangi çıkış nereye" kararını kendisi top seviyede mux/tag ile çözecek sanıyordu, ben de "wiring ile
+		ayrılıyor, tag'e gerek yok" diyene kadar bu netleşmemişti. İçi Taha'yı ilgilendirmiyor, o yüzden içeriye
+		hiç bakmadan doğrudan top.sv'ye takabileceği 5 çıkış var:
+
+			q_data_o		-> Belinay'a (qk_array girişi)
+			k_data_o		-> Taha'ya (kv_cache yazma)
+			v_data_o		-> Taha'ya (kv_cache yazma)
+			kv_head_idx_o		-> Taha'ya (kv_cache okuma adresi)
+			out_data_o		-> Taha'ya (axi_stream_if, dışarı çıkış)
+
+		Girişte de iki ayrı, hiç karışmayan port var:
+
+			token_data_i		- dbuf'tan geliyor, Wq/Wk/Wv ile çarpılıyor (aynı token, 3 farklı weight)
+			attn_data_i		- Belinay'dan (Score×V sonrası) geliyor, Wo ile çarpılıyor
+
+		Hiçbir yerde "bu veri nereden geldi, nereye gidecek" diye karar veren bir mux yoktur, her şey hardwired.
+		write enable de ayrı bir sinyal değil, k_valid_o/v_valid_o zaten valid/ready handshake'in kendisi,
+		Taha valid yüksekken cache'e yazacak, last geldiğinde vektör bitmiş demek.
+
+		Not [07.08.2026]: ilk yazdığım halinde token_ready_o sadece Wq instance'ının x_ready_o'suna
+		bağlıydı, Wk ve Wv'ninki hiç dışarı çıkmıyordu. Üçü de aynı token_valid_i/token_data_i'yi paylaştığı
+		için normalde lockstep çalışırlar, ama biri (mesela Wv) k_ready_i/v_ready_i backpressure'i yüzünden
+		ST_DRAIN'de takılıp ST_LOAD'a geç dönerse, dışarısı token_ready_o'yu (sadece Wq'dan) hâlâ yüksek
+		görüp yeni token gönderebilirdi, Wv de kendi state'i ST_LOAD olmadığı için o veriyi sessizce
+		kaçırırdı. Düzeltildi: token_ready_o artık üçünün x_ready_o'sunun AND'i.
+
+	--------------------------------------------------------------------------------------------------------------------------------------
+
 	HER TAKIM ARKADAŞINDAN NEYE İHTİYACIM VAR
 
 		BELİNAY'DAN:
@@ -255,14 +289,20 @@
 
 		TAHA'DAN:
 
-			- qkv_proj.sv instance'larımın token vektörünü çekeceği dbuf.sv okuma arayüzü, şu an
-			  x_data_i/x_valid_i/x_last_i üzerinde genel bir valid/ready stream tahmin ettim
+			[07.08.2026 ÇÖZÜLDÜ] Q/K/V/Wo çıkışının nereye gideceğinin nasıl ayırt edileceği: WhatsApp'ta
+			netleşti, ayırt etme yok, projection_block.sv 5 sabit çıkış veriyor (yukarıdaki bölüme bak),
+			Taha kendi tarafında hardwired bağlayacak.
+
+			- Taha'nın top.sv'si (FPT_taha, commit 8d76d14) şu an `mod_b` diye TEK bir instance + o tek
+			  çıkışı tag ve eleman sayacıyla Q/V/K/FIFO'ya dağıtan mod_b_output_router.sv üzerine kurulu,
+			  bu artık projection_block.sv'nin 5-port hardwired modeliyle uyuşmuyor. Taha'nın top.sv'yi
+			  mod_b + mod_b_output_router yerine projection_block'u doğrudan 5 portla bağlayacak şekilde
+			  güncellemesi lazım, bu benim tarafımda yapılacak bir şey değil.
 			- kv_cache.sv okuma adres formatı, böylece gqa_mapper.sv'in kv_head_idx_o çıktısı Taha'nın
 			  kuracağı adresleme şemasıyla (katman başına, head başına offset) gerçekten uyuşsun
-			- top_fsm.sv'in faz sinyalleri, modüllerimin en üst seviyeden nasıl "şimdi yükle", "şimdi
-			  hesapla", "şimdi akıt" denildiğini bilmem lazım, şu an dışarıdan bir start sinyali olmayan
-			  kendi başlarına çalışan state machine'ler, 4'ten fazla instance doğru sırada çalışması
-			  gerektiğinde bu yetmeyecek
+			- projection_block.sv'nin ne zaman "şimdi başla" denileceği: şu an dışarıdan bir start sinyali
+			  yok, sadece token_valid_i/attn_valid_i handshake'ine göre kendiliğinden çalışıyor, top.sv
+			  seviyesinde ekstra bir faz kontrolüne ihtiyaç olup olmadığını Taha ile teyit etmek lazım
 
 		HASAN'DAN:
 
@@ -311,5 +351,9 @@
 		7. rope.sv/qkv_proj.sv'in tek-vektör-seri çıkışını qk_array (2).sv'nin		- Belinay ile kimin yazacağını netleştir
 		   istediği "derinlik dilimi başına SIZE seri çift" formatına paketleyecek
 		   ara katman (buffer/FIFO) henüz yok
+		8. [07.08.2026 ÇÖZÜLDÜ] Q/K/V/Wo çıkışının ayırt edilmesi			- projection_block.sv 5 sabit hardwired çıkış veriyor, mux/tag yok
+		9. Taha'nın top.sv'sinin mod_b + mod_b_output_router modelinin		- Taha'nın kendisiyle teyit et, benim tarafımda yapılacak iş yok
+		   projection_block.sv'nin 5-port hardwired modeline göre yeniden
+		   kablanması gerekiyor, henüz yapılmadı
 
 	--------------------------------------------------------------------------------------------------------------------------------------
