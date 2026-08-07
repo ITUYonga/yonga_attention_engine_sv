@@ -202,7 +202,7 @@ module attention_engine_top #(
     // =========================================================
     // 7. MODÜL C (SOFTMAX)
     // =========================================================
-    scale_mask u_mod_c_softmax (
+    mod_c u_mod_c_softmax (
         .clk(clk), .rst_n(rst_n),
         .s_axis_tdata(c_in_d[15:0]), 
         .s_axis_tvalid(c_in_v), 
