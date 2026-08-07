@@ -150,7 +150,7 @@ module attention_engine_top #(
     // =========================================================
     // 3. CAN'IN MODÜL B'Sİ (qkv_proj - 17 Bit Güncellemeli)
     // =========================================================
-    qkv_proj #(
+    mod_b #(
         .DATA_WIDTH(DATA_WIDTH_bf16), .D_MODEL(D_MODEL), .D_OUT(D_MODEL)
     ) u_mod_b (
         .clk_i(clk), .rst_ni(rst_n),
@@ -240,7 +240,7 @@ module attention_engine_top #(
     // =========================================================
     // 9. MODÜL C (Softmax: Scale & Mask)
     // =========================================================
-    softmax u_mod_c_softmax (
+    mod_c u_mod_c_softmax (
         .clk(clk), .rst_n(rst_n),
         .s_axis_tdata(c_in_d[15:0]), // Softmax genelde Tag'e ihtiyaç duymaz, sade veriyi işler
         .s_axis_tvalid(c_in_v), 
