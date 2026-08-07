@@ -57,6 +57,34 @@
 
 	--------------------------------------------------------------------------------------------------------------------------------------
 
+	GÜNCELLEME - 07.08.2026
+
+		Belinay FPT_belinay_codes'ta (commit e295872) bf16_mul ve bf16_add'i baştan yazdı: ikisi de artık 2 stage
+		pipeline (valid_i/valid_o handshake ile, 0 cycle değil), ve portları 16-bit değil 17-bit oldu, bit[16]
+		aritmetiğe hiç girmeyen bir "source tag" (kaynak etiketi) olarak pipeline boyunca değişmeden taşınıp
+		çıkışta geri ekleniyor. Belinay'la konuşup 0 = benim (Can) bloğumdan geldi, 1 = onun bloğundan geldi
+		diye karar verdik, ihtiyaç Belinay'ın qk_array'inin paylaşılan fiziksel kaynaklarını (aynı array hem
+		QK^T hem Score×V için tekrar kullanılıyor) hangi işlemin beslediğini karışıklık olmadan ayırt edebilmesi.
+
+		Bunun üzerine qkv_proj.sv ve rope.sv'yi güncelledim:
+			- y_data_o artık [DATA_WIDTH:0] (17 bit), bit DATA_WIDTH sabit SRC_TAG_CAN (0), geri kalanı
+			  eskisi gibi bf16 değeri. x_data_i 16 bit kaldı, gelen verinin tag'i benim için önemli değil,
+			  bu modül ne üretirse onu kendi tag'imle işaretliyorum.
+			- ST_COMPUTE (qkv_proj) / mstep'in çarpma-toplama kısmı (rope) artık tek cycle'da bitmiyor,
+			  bf16_mul/bf16_add'in valid_i/valid_o handshake'ini bekleyen ISSUE/WAIT alt state'lerine
+			  bölündü, detaylar aşağıdaki STATE MACHINE bölümlerinde güncellendi.
+			- gqa_mapper.sv'ye dokunmadım, bf16 birimi kullanmıyor, tag kavramı ona hiç uygulanmıyor.
+
+		Açık nokta: qk_pe.sv içinde `assert(q_in[16]==k_in[16])` var, yani bir PE'ye giren iki operand aynı
+		tag'i taşımak zorunda. Q×K^T geçişinde ikisi de benim rope.sv'imden geldiği için otomatik uyuşuyor.
+		Score×V geçişinde (array'in ikinci kullanımı) bir operand Hasan'ın softmax çıkışı, diğeri benim V
+		çıkışım olacak, o ikisinin qk_array'e girerken aynı tag'i taşıyacak şekilde kimin bağlayacağı henüz
+		netleşmedi (muhtemelen top_fsm.sv'i yazan kişinin işi). Ayrıca Belinay'ın yeni qk_array (2).sv'si artık
+		paralel bus değil, derinlik dilimi başına SIZE seri Q/K çifti bekliyor - benim rope.sv/qkv_proj.sv'imin
+		tek-vektör-seri çıkışını o formata paketleyecek bir ara katman (buffer/FIFO) henüz yazılmadı.
+
+	--------------------------------------------------------------------------------------------------------------------------------------
+
 	"qkv_proj.sv"
 
 	Fonksiyon Tanımı:
@@ -75,31 +103,40 @@
 		PORTLAR:
 
 			w_data_i, w_addr_i, w_we_i	- kullanmadan önce ağırlık matrisini yüklemek için düz yazma portu
-			x_data_i, x_valid_i, x_last_i	- girdi vektörü, clock başına bir eleman akıyor
-			y_data_o, y_valid_o, y_last_o	- çıkış vektörü, clock başına bir eleman akıyor
+			x_data_i, x_valid_i, x_last_i	- girdi vektörü, clock başına bir eleman akıyor, 16 bit (tag yok,
+							  gelen verinin nereden geldiği bu modül için önemli değil)
+			y_data_o, y_valid_o, y_last_o	- çıkış vektörü, clock başına bir eleman akıyor, y_data_o artık
+							  17 bit: bit[DATA_WIDTH] sabit SRC_TAG_CAN (0), bit[DATA_WIDTH-1:0]
+							  bf16 değeri
 			busy_o				- modül idle değilken yüksek, sadece waveform debug için
 
-		STATE MACHINE ADIMLARI:
+		STATE MACHINE ADIMLARI: (07.08.2026 güncellendi, Belinay'ın pipeline'lı bf16_mul/bf16_add'ine göre)
 
 			ADIM 1 : ST_LOAD
 			Kısa Açıklama : x_ready_o yüksekken girdi vektörünü clock başına bir eleman olarak x_mem'e
-					 alıyor. x_last_i geldiğinde modül ST_COMPUTE'a geçiyor.
+					 alıyor. x_last_i geldiğinde modül ST_MUL_ISSUE'ya geçiyor.
 
-			ADIM 2 : ST_COMPUTE
-			Kısa Açıklama : Çarpma toplama döngüsünü çalıştırıyor. İki iç içe sayaç var, out_idx_q hangi
-					 çıkış elemanını oluşturduğumuzu, mac_idx_q hangi girdi elemanıyla çarptığımızı
-					 tutuyor. Tek bir bf16_mul ve tek bir bf16_add her terim için tekrar tekrar
-					 kullanılıyor, bu adım her çıkış elemanı için D_MODEL clock cycle sürüyor.
+			ADIM 2 : ST_MUL_ISSUE / ST_MUL_WAIT
+			Kısa Açıklama : mac_idx_q'daki weight*x çarpımı için bf16_mul'a valid_i pulse'lanıyor
+					 (ST_MUL_ISSUE), sonra valid_o gelene kadar bekleniyor (ST_MUL_WAIT), sonuç
+					 prod_q'ya kaydediliyor.
 
-			ADIM 3 : ST_DRAIN
+			ADIM 3 : ST_ADD_ISSUE / ST_ADD_WAIT
+			Kısa Açıklama : acc_q + prod_q toplamı için bf16_add'e valid_i pulse'lanıyor, valid_o
+					 gelince ya bir sonraki mac_idx'e geçiliyor (acc_q güncellenip ST_MUL_ISSUE'ya
+					 dönülüyor) ya da mac_idx_q son elemansa sonuç y_mem'e yazılıp out_idx_q
+					 ilerletiliyor. Her çıkış elemanı artık D_MODEL clock değil, D_MODEL * (mul+add
+					 pipeline gecikmesi) kadar cycle sürüyor.
+
+			ADIM 4 : ST_DRAIN
 			Kısa Açıklama : y_ready_i yüksekken bitmiş y_mem içeriğini clock başına bir eleman dışarı
-					 akıtıyor, y_last_o son elemanı işaretliyor.
+					 akıtıyor, y_last_o son elemanı işaretliyor. Değişmedi.
 
 		Not: weight_mem düz bir array index ile okunuyor, bu asenkron bir okuma, Taha'ya dbuf.sv için
 		     söylediğim aynı endişe burada da geçerli. İlk versiyon için böyle bırakıldı, önce doğruluk.
 
-		Not: bu tasarım bf16_mul ve bf16_add'in şu anki gibi tamamen combinational (0 cycle latency) kalacağını
-		     varsayıyor. Belinay ileride pipeline eklerse ST_COMPUTE'a ekstra bekleme cycle'ı eklemek gerekecek.
+		Not: bf16_mul ve bf16_add artık 0 cycle latency değil (Belinay'ın e295872 güncellemesi), bu yüzden
+		     yukarıdaki ISSUE/WAIT alt state'leri eklendi. Eski "0 cycle varsayımı" notu artık geçerli değil.
 
 	--------------------------------------------------------------------------------------------------------------------------------------
 
@@ -125,28 +162,36 @@
 		PORTLAR:
 
 			pos_i				- şu anki token'in pozisyonu, vektörün ilk elemanında bir kere latch'leniyor
-			x_data_i, x_valid_i, x_last_i	- girdi vektörü, clock başına bir eleman akıyor
-			y_data_o, y_valid_o, y_last_o	- dönmüş çıkış vektörü, clock başına bir eleman akıyor
+			x_data_i, x_valid_i, x_last_i	- girdi vektörü, clock başına bir eleman akıyor, 16 bit (tag yok,
+							  qkv_proj.sv'deki gerekçenin aynısı)
+			y_data_o, y_valid_o, y_last_o	- dönmüş çıkış vektörü, clock başına bir eleman akıyor, y_data_o
+							  artık 17 bit: bit[DATA_WIDTH] sabit SRC_TAG_CAN (0). Q ve K aynı
+							  modülden geçtiği için ikisi de aynı tag'i taşıyor, Belinay'ın
+							  qk_pe.sv'i tam bunu bekliyor (q_in[16]==k_in[16] assert'i var)
 
-		STATE MACHINE ADIMLARI:
+		STATE MACHINE ADIMLARI: (07.08.2026 güncellendi, Belinay'ın pipeline'lı bf16_mul/bf16_add'ine göre)
 
 			ADIM 1 : ST_LOAD
 			Kısa Açıklama : qkv_proj ile aynı mantık, önce bütün girdi vektörünü x_mem'e topluyor, ayrıca
 					 vektörün ilk elemanında pos_i'yi pos_q'ya latch'liyor.
 
-			ADIM 2 : ST_COMPUTE
+			ADIM 2 : ST_MUL_ISSUE / ST_MUL_WAIT / ST_ADD_ISSUE / ST_ADD_WAIT
 			Kısa Açıklama : Bir seferde bir çift üzerinde çalışıyor (pair_idx_q), her çiftin içinde de dört
 					 mikro adım (mstep_q 0'dan 3'e) çalıştırıyor, çünkü rotasyon dört çarpma iki
 					 toplama gerektiriyor ama elimizde sadece tek bir paylaşılan çarpıcı ve tek bir
-					 paylaşılan toplayıcı var.
+					 paylaşılan toplayıcı var. Her mikro adım artık bf16_mul'a valid_i pulse'layıp
+					 valid_o'yu bekliyor (ST_MUL_ISSUE/ST_MUL_WAIT); mstep 1 ve 3 çarpımdan sonra
+					 ayrıca bf16_add'e valid_i pulse'layıp valid_o'yu bekliyor (ST_ADD_ISSUE/
+					 ST_ADD_WAIT), mstep 0 ve 2 sadece çarpıp tmp'ye yazdığı için toplama adımına
+					 hiç girmiyor.
 
-						mstep 0 : x1 * cos			-> tmp1'e yazılır
-						mstep 1 : x2 * sin, sonra tmp1 - sonuç	-> bu y1
-						mstep 2 : x1 * sin			-> tmp3'e yazılır
-						mstep 3 : x2 * cos, sonra tmp3 + sonuç	-> bu y2
+						mstep 0 : x1 * cos				-> tmp1'e yazılır, toplama yok
+						mstep 1 : x2 * sin, sonra tmp1 - sonuç		-> bu y1
+						mstep 2 : x1 * sin				-> tmp3'e yazılır, toplama yok
+						mstep 3 : x2 * cos, sonra tmp3 + sonuç		-> bu y2
 
 			ADIM 3 : ST_DRAIN
-			Kısa Açıklama : Dönmüş vektörü qkv_proj ile aynı şekilde dışarı akıtıyor.
+			Kısa Açıklama : Dönmüş vektörü qkv_proj ile aynı şekilde dışarı akıtıyor. Değişmedi.
 
 		Not: çift eşleme şeması (x1, x1 + D_MODEL/2 ile eşleniyor, "rotate half" tarzı) kendi varsayımım,
 		     plan dokümanında golden modelin bunu mu yoksa komşu eleman eşleme tarzını mı (x1, x1+1 ile
@@ -194,14 +239,19 @@
 
 		BELİNAY'DAN:
 
-			- bf16_add ve bf16_mul için donmuş bir port listesi, benimkiler zaten a_in, b_in,
-			  result_sum_o ve result_mul_o varsayıyor, bu isimler ya da genişlikler değişirse benim
-			  instantiate ettiğim yerler bozulur
-			- bf16_add/bf16_mul'ün 0 cycle latency mi kalacağı yoksa pipeline mi edileceği konusunda net
-			  bir cevap, bu qkv_proj.sv ve rope.sv'deki ST_COMPUTE'un kaç bekleme cycle'ı gerektirdiğini
-			  değiştiriyor
-			- qk_array.sv'nin port listesi, modüllerim onu doğrudan instantiate etmese de girdi formatını
-			  bilmem lazım ki qkv_proj.sv'in (Q instance'ı) y_data_o akışı onun beklediğiyle uyuşsun
+			[07.08.2026 ÇÖZÜLDÜ] bf16_add/bf16_mul port listesi ve 0 cycle/pipeline sorusu: e295872'de
+			netleşti, ikisi de artık clk_i/rst_ni/valid_i/valid_o eklenmiş 17-bit (a_in/b_in/result_*_o)
+			2-stage pipeline modüller, bit[16] source tag. qkv_proj.sv ve rope.sv buna göre güncellendi.
+
+			- Score×V geçişinde (qk_array aynı fiziksel array'i ikinci kez kullandığında) benim V
+			  çıkışım ile Hasan'ın softmax çıkışının qk_array'e aynı tag ile girmesi lazım (qk_pe.sv'nin
+			  q_in[16]==k_in[16] assert'i yüzünden). Bunu kim, nerede (top_fsm.sv'de mi?) garantileyecek,
+			  netleşmedi.
+			- qk_array (2).sv artık paralel bus değil, "derinlik dilimi" başına SIZE tane seri Q/K çifti
+			  bekliyor (enable_i/start_i/valid_i/last_i handshake'i ile). Benim rope.sv/qkv_proj.sv'imin
+			  tek-vektör-seri (D_MODEL eleman, bir seferde bir vektör) çıkışını bu SIZE-satır-genişliğinde
+			  derinlik-dilimi formatına kim paketleyecek netleşmedi, muhtemelen ortada bir buffer/FIFO
+			  katmanı gerekiyor ve kimin yazacağı konuşulmadı.
 
 		TAHA'DAN:
 
@@ -252,9 +302,14 @@
 	TAKIMLA TEYİT EDİLMESİ GEREKEN AÇIK VARSAYIMLAR
 
 		1. rope.sv çift eşleme şeması, rotate-half mi komşu eleman eşleme mi		- golden model'e göre teyit et
-		2. bf16_add/bf16_mul'ün 0 cycle latency kalması				- ST_COMPUTE zamanlamasına güvenmeden önce Belinay ile teyit et
+		2. [07.08.2026 ÇÖZÜLDÜ] bf16_add/bf16_mul'ün 0 cycle latency kalması		- Belinay pipeline'lı yaptı (e295872), qkv_proj.sv/rope.sv güncellendi
 		3. qkv_proj.sv weight_mem ve rope.sv sin_rom/cos_rom'un asenkron okunması	- BRAM inference kabul edilebilir mi yoksa register mı gerekiyor teyit et
 		4. gqa_mapper.sv'in sadece index dönmesi, gerçek K/V veriyi mux'lamaması	- kv_cache okuma adreslemesinin nasıl çalıştığını Taha ile teyit et
 		5. rope_sin_rom.mem / rope_cos_rom.mem üretim scripti				- henüz yok, rope.sv simüle edilmeden önce yazılması lazım
+		6. Score×V geçişinde qk_array'e giren V ile softmax çıkışının aynı source	- top_fsm.sv'i kim yazıyorsa onunla teyit et
+		   tag'i taşıyıp taşımadığı (qk_pe.sv assert'i bunu istiyor)
+		7. rope.sv/qkv_proj.sv'in tek-vektör-seri çıkışını qk_array (2).sv'nin		- Belinay ile kimin yazacağını netleştir
+		   istediği "derinlik dilimi başına SIZE seri çift" formatına paketleyecek
+		   ara katman (buffer/FIFO) henüz yok
 
 	--------------------------------------------------------------------------------------------------------------------------------------
