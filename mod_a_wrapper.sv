@@ -125,5 +125,5 @@ module mod_a_wrapper #(
     // Otoyola Çıkış Atamaları
     assign m_valid = drain_active;
     assign m_data  = drain_active ? out_buffer[row_cnt][col_cnt] : 17'b0;
-
+    assign m_last  = drain_active && (row_cnt == SIZE - 1) && (col_cnt == SIZE - 1);
 endmodule
