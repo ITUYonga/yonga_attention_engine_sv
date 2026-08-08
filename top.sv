@@ -70,6 +70,13 @@ module attention_engine_top #(
     logic fifo_out_v, fifo_out_r; 
     logic [16:0] fifo_out_d; 
 
+    // Modül C (Softmax) Bağlantıları
+    logic c_in_v, c_in_r, c_in_last; // last pini eklendi
+    logic [16:0] c_in_d;
+
+    logic c_v, c_r, c_out_last;      // last pini eklendi
+    logic [16:0] c_d;
+
     // =========================================================
     // 1. AXI, DBUF VE STREAMER
     // =========================================================
@@ -199,19 +206,37 @@ module attention_engine_top #(
         .b_valid(a_w0_v), .b_data(a_w0_d), .b_ready(a_w0_r)  
     );
 
+  // =========================================================
+    // 7. MODÜL C (SCALE + MASK + SOFTMAX WRAPPER)
     // =========================================================
-    // 7. MODÜL C (SOFTMAX)
-    // =========================================================
-    mod_c u_mod_c_softmax (
-        .clk(clk), .rst_n(rst_n),
+    scale_mask_softmax_wrapper #(
+        .DATA_WIDTH(16),
+        .MAX_ROW_LEN(D_MODEL) 
+    ) u_mod_c_softmax (
+        .clk(clk), 
+        .rst_n(rst_n),
+
+        // --- Hardcoded Konfigürasyon ---
+        // 1 / sqrt(64) = 0.125 (BF16 Karşılığı: 16'h3E00)
+        .scale_factor(16'h3E00), 
+        .en_scale_mask(1'b1),    // Maskeleme ve ölçekleme sürekli aktif
+        .ext_stall(1'b0),        // Otoyol mantığında dışarıdan durdurma yok
+
+        // --- Giriş AXI-Stream ---
         .s_axis_tdata(c_in_d[15:0]), 
         .s_axis_tvalid(c_in_v), 
         .s_axis_tready(c_in_r),
+        .s_axis_tlast(c_in_last),    
+
+        // --- Çıkış AXI-Stream ---
         .m_axis_tdata(c_d[15:0]), 
         .m_axis_tvalid(c_v), 
-        .m_axis_tready(c_r)
+        .m_axis_tready(c_r),
+        .m_axis_tlast(c_out_last)    
     );
-    assign c_d[16] = 1'b1; 
+
+    // Çıkan veriyi 17-bit Tag (1: W0 Projeksiyonu Hedefi) ile paketle
+    assign c_d[16] = 1'b1;
 
     // =========================================================
     // 8. ÇIKIŞ FIFO (TX)
