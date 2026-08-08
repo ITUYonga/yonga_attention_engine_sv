@@ -33,6 +33,7 @@ module attention_engine_top #(
     // =========================================================
     // İÇ KABLOLAR
     // =========================================================
+    logic a_out_last, a_w0_last;
     logic [DBUF_ADDR_WIDTH-1:0] dbuf_read_addr;
     logic [DATA_WIDTH_bf16-1:0] dbuf_read_data; 
     logic dbuf_v, dbuf_r, dbuf_last;
@@ -140,7 +141,7 @@ module attention_engine_top #(
 
         .q_head_idx_i('0), .kv_head_idx_o(),
         
-        .attn_data_i(a_w0_d), .attn_valid_i(a_w0_v), .attn_last_i(1'b0), .attn_ready_o(a_w0_r),
+        .attn_data_i(a_w0_d), .attn_valid_i(a_w0_v), .attn_last_i(a_w0_last), .attn_ready_o(a_w0_r),
         .out_data_o(out_proj_d), .out_valid_o(out_proj_v), .out_last_o(out_proj_last), .out_ready_i(out_proj_r)
     );
 
@@ -197,13 +198,13 @@ module attention_engine_top #(
     mod_a_wrapper #(.SIZE(4), .DEPTH(D_MODEL)) u_mod_a_wrap (
         .clk_i(clk), .rst_ni(rst_n),
         .s_valid(a_in_v), .s_q_data(a_in_q), .s_k_data(a_in_k), .s_ready(a_in_r),
-        .m_valid(a_out_v), .m_data(a_out_d), .m_ready(a_out_r)
+        .m_valid(a_out_v), .m_data(a_out_d), .m_ready(a_out_r), .m_last(a_out_last)
     );
 
     mod_a_output_router #(.DATA_WIDTH(17)) u_a_router (
         .mod_a_valid(a_out_v), .mod_a_data(a_out_d), .mod_a_tag(a_out_d[16]), .mod_a_ready(a_out_r),
         .c_valid(c_in_v), .c_data(c_in_d), .c_ready(c_in_r), 
-        .b_valid(a_w0_v), .b_data(a_w0_d), .b_ready(a_w0_r)  
+        .b_valid(a_w0_v), .b_data(a_w0_d), .b_ready(a_w0_r), .mod_a_last(a_out_last)
     );
 
   // =========================================================
