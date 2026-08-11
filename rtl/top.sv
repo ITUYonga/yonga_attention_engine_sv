@@ -217,7 +217,14 @@ module attention_engine_top #(
         // --- Hardcoded Konfigürasyon ---
         // 1 / sqrt(64) = 0.125 (BF16 Karşılığı: 16'h3E00)
         .scale_factor(16'h3E00), 
-        .en_scale_mask(1'b1),    // Maskeleme ve ölçekleme sürekli aktif
+        // GECICI: gercek eleman-bazli causal mask ureticisi henuz yok.
+        // 1'b1 (her elemani hep -inf'e maskele) sentezde sabit deger
+        // oldugu icin Vivado softmax/Module A'nin buyuk bolumunu "olu
+        // mantik" sayip siliyordu (utilization raporunu anlamsizlastiriyordu),
+        // ustune ustluk softmax'i da fonksiyonel olarak kirar. 0 (hic
+        // maskeleme yok) gercek causal mask gelene kadar daha dogru bir
+        // varsayilan.
+        .en_scale_mask(1'b0),
         .ext_stall(1'b0),        // Otoyol mantığında dışarıdan durdurma yok
 
         // --- Giriş AXI-Stream ---
