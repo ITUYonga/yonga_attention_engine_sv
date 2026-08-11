@@ -20,6 +20,7 @@ module mod_a_wrapper #(
     // ==========================================
     output logic        m_valid,
     output logic [16:0] m_data,   // 17-Bit (Tag + BF16)
+    output logic        m_last,
     input  logic        m_ready
 );
 
