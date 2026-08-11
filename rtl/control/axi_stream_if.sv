@@ -17,7 +17,7 @@ module axi_stream_if #(
     output logic        internal_rx_last ,//FSM son data geldi sinyali ver
 
 
-    output logic [DATA_WIDTH_bf16-1:0] m_axis_tdata,   // output data
+    output logic [DATA_WIDTH_f32-1:0] m_axis_tdata,   // output data
     output logic        m_axis_tvalid,  // PC data var sinyali ver
     input  logic        m_axis_tready,  // PC data alabilirim sinyali al
     output logic        m_axis_tlast,   // PC Data bitti sinayi ver
