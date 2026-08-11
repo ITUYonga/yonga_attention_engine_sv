@@ -12,6 +12,7 @@ module uram_memory #(
     // 1. YAZMA ARAYÜZÜ (Modül B'den Gelir - Streaming)
     // ==========================================
     input  logic                  wr_en,
+    input  logic [ADDR_WIDTH-1:0] wr_addr,
     input  logic [DATA_WIDTH-1:0] wr_data,
     output logic                  ready,     // Modül B'ye "Hazırım" sinyali
 
@@ -28,31 +29,18 @@ module uram_memory #(
     (* ram_style = "ultra" *) 
     logic [DATA_WIDTH-1:0] mem [0:DEPTH-1];
 
-    // Yazma işlemi için iç sayaç (Modül B adres göndermediği için biz sayıyoruz)
-    logic [ADDR_WIDTH-1:0] wr_addr;
-    logic is_full;
-
     // ==========================================
-    // YAZMA İŞLEMİ VE SAYAÇ KONTROLÜ
+    // YAZMA İŞLEMİ (adres dışarıdan geliyor - uram_pingpong_controller
+    // bank+pointer'ı zaten hesaplıyor, burada ikinci bir sayaca gerek yok.
+    // Önceki sürümde bu iç sayaçla üretiliyordu ve wr_addr diye bir port
+    // hiç yoktu; top.sv'nin bağlamaya çalıştığı adres gidecek yer bulamıyordu)
     // ==========================================
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            wr_addr <= '0;
-        end else begin
-            if (wr_en && !is_full) begin
-                mem[wr_addr] <= wr_data; // Belleğe yaz
-                
-                // Güvenlik: Adres sınırına ulaştıysa başa sar (veya bekle)
-                if (wr_addr == DEPTH - 1)
-                    wr_addr <= '0;
-                else
-                    wr_addr <= wr_addr + 1'b1;
-            end
+    always_ff @(posedge clk) begin
+        if (wr_en) begin
+            mem[wr_addr] <= wr_data;
         end
     end
 
-    // URAM kapasitesi dolmadıysa Modül B'den veri almaya her zaman hazırdır
-    assign is_full = (wr_addr == DEPTH - 1 && wr_en); 
     assign ready   = 1'b1; // (Dataflow tasarımımızda URAM hep veri kabul edecek kadar büyük tasarlanır)
 
     // ==========================================
