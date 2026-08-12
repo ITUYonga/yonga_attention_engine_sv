@@ -52,16 +52,12 @@ module dbuf_read_streamer #(
     input  logic                  clk, 
     input  logic                  rst_n,
 
-    // -----------------------------------------
-    // DBUF Arayüzü (Bellek Okuma)
-    // -----------------------------------------
-    input  logic                  swap_buffers, 
+    // dbuf interface (memory read)
+    input  logic                  swap_buffers,
     output logic [ADDR_WIDTH-1:0] read_addr,
-    input  logic [DATA_WIDTH-1:0] read_data,    // 1 cycle gecikmeli gelir
+    input  logic [DATA_WIDTH-1:0] read_data,    // arrives 1 cycle later
 
-    // -----------------------------------------
-    // Modül B'ye Giden Doğrudan Veri Yolu
-    // -----------------------------------------
+    // direct data path to Module B
     output logic                  m_valid,
     output logic [DATA_WIDTH-1:0] m_data,
     output logic                  m_last,       // Can'ın token_last_i pini için
@@ -80,12 +76,10 @@ module dbuf_read_streamer #(
     logic [$clog2(D_MODEL)-1:0] token_cnt; 
     logic                       read_en;
 
-    // Gecikme Yönetimi İçin Pipeline Yazmaçları
+    // pipeline registers to track the memory read latency
     logic pipe_valid, pipe_last;
 
-    // =========================================================
-    // ADRES ÜRETİCİ VE TEK TUR SAYACI
-    // =========================================================
+    // address generator and single-pass counter
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state      <= IDLE;
@@ -136,9 +130,7 @@ module dbuf_read_streamer #(
     assign read_en   = (state == STREAMING);
     assign read_addr = addr_cnt;
 
-    // =========================================================
-    // ÇIKIŞ YAZMAÇLARI (Bellek Gecikmesi Senkronizasyonu)
-    // =========================================================
+    // output registers, synchronized to the memory read latency
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             m_valid <= 1'b0;

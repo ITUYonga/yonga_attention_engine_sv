@@ -4,12 +4,14 @@
 
 **Team:** İTÜ Yonga (Yonga Attention Engine, YAE)
 
-- Can Ertürk
 - Belinay Güler
+- Can Ertürk
 - Hasan Sancak
 - M. Taha Aydemir
 
 **Date:** August 2026 | **Platform:** Xilinx Vivado / SystemVerilog
+
+## Introduction
 
 Four billion years ago there was no such thing as paying attention. Chemistry happened uniformly, everywhere, all at once, until self replicating molecules gave some of that chemistry a reason to prefer one direction over another. A few billion years later, nervous systems appeared, and with them a genuinely new capability, not just reacting to the world, but selecting which part of it to react to. A frog's eye does not report everything in front of it with equal weight. It reports the fly. Attention, in the biological sense, is one of evolution's oldest tricks for making a small brain behave as if it were a much larger one, by deciding, moment to moment, what is worth thinking about at all.
 
@@ -29,6 +31,7 @@ Key highlights:
 
 ## Navigation
 
+- [Introduction](#introduction)
 - [Why It Matters](#why-it-matters)
 - [What is Self-Attention?](#what-is-self-attention)
 - [Mathematical Background](#mathematical-background)
@@ -127,20 +130,14 @@ The diagram at the top of this README is the complete data path, read left to ri
 
 Module A, the shared systolic array in the middle of the diagram, then runs twice on the same physical hardware. First it computes Q·Kᵀ from the URAM contents. Then, once `scale_mask` and `softmax` have turned that similarity matrix into normalized weights, it runs a second time to compute score·V, using the exact same PEs. The 1-bit tag carried on every value is what lets Module A's input arbiter and output router send each of the two passes to the right place without ever needing a second copy of the array. The result is projected once more through `qkv_proj` (this instance loaded with Wo), streamed through `tx_fifo`, converted back to FP32, and returned over AXI-Stream.
 
-`architecture.drawio` (open with the draw.io / diagrams.net extension) has five pages: the system-level data flow above, plus one FSM diagram each for `qkv_proj`, `rope`, `softmax`, and the `uram_pingpong_controller` read side. These are generated from the actual `case`/`always_comb` state logic in those files by `scripts/gen_diagrams.py`, not hand-drawn from memory. The same script also renders all five pages straight to PNG under `images/diagram_*.png`, so the drawio file and the pictures in this README never drift apart. Re-run it after changing a state machine:
-
-```
-python scripts/gen_diagrams.py
-```
-
-The `.drawio` file itself is still freely editable by hand afterward if you want to touch up the layout.
+`architecture.drawio` (open with the draw.io / diagrams.net extension) has five pages: the system-level data flow above, plus one FSM diagram each for `qkv_proj`, `rope`, `softmax`, and the `uram_pingpong_controller` read side, derived directly from the actual `case`/`always_comb` state logic in those files rather than hand-drawn from memory. The same five pages are rendered to PNG under `images/diagram_*.png`.
 
 <details>
-<summary>Auto-generated architecture diagram (script output, before hand touch-up)</summary>
+<summary>Auto-generated architecture diagram</summary>
 
 ![auto-generated architecture diagram](images/diagram_architecture.png)
 
-*The same data path as the hand-touched diagram at the top of this README, rendered directly from `scripts/gen_diagrams.py`'s own box and edge data model rather than drawn by hand. Kept here so the underlying structure the script actually generated stays visible and checkable against the polished version above.*
+*The same data path as the hand-touched diagram at the top of this README. Kept here so the underlying structure stays visible and checkable against the polished version above.*
 
 </details>
 
@@ -230,7 +227,7 @@ A few examples pulled directly from that process:
 - `en_scale_mask` was wired to a constant 1 in `top.sv`. By `scale_mask.sv`'s own logic, that masks every element of every row to negative infinity, so softmax would have degenerated to a fixed output regardless of input. Changed the default to 0 (no masking) until real per-position causal mask logic exists.
 - `qkv_proj.sv`, `rope.sv`, and the shared `qk_array.sv` systolic array all made separate, undocumented assumptions about the 1-bit tag riding along the top of the 17-bit BF16 bus. Getting the Q·Kᵀ pass and the score·V pass to agree on whose tag was whose took a specific, still-flagged fix inside `mod_a_input_arbiter.sv`.
 
-Once the pipeline actually elaborated and simulated, Can Ertürk also built the standalone testbench suite under `tb/`, the RoPE ROM generation script, and the `architecture.drawio` / `scripts/gen_diagrams.py` diagramming pipeline used throughout this document, so every diagram here is derived from the same state machine logic that is actually synthesized, not redrawn by hand from memory.
+Once the pipeline actually elaborated and simulated, Can Ertürk also built the standalone testbench suite under `tb/` and the `architecture.drawio` diagrams used throughout this document, so every diagram here is derived from the same state machine logic that is actually synthesized, not redrawn by hand from memory.
 
 This kind of work does not show up as a new feature or a clever algorithm. It rarely gets its own slide. But a self-attention accelerator that four people wrote in isolation, and that nobody had actually connected end to end, was until this pass four plausible-looking RTL directories rather than a working chip.
 
@@ -245,7 +242,7 @@ Diagnosing that meant instrumenting the handshake chain stage by stage (`done_o 
 3. **`rtl/control/mod_a_input_arbiter.sv`** — `c_ready` (softmax's `m_axis_tready`) was computed inside the `del_c_valid` branch, itself a one-cycle-delayed copy of `c_valid`. Softmax's very first `c_valid` needs `c_ready` to already be `1`, but `c_ready` could only become `1` *after* softmax had already asserted `c_valid` once — a chicken-and-egg deadlock that left softmax stuck before producing its first output. Fixed with a direct `assign c_ready = mod_a_ready;`.
 4. **`rtl/softmax/softmax.sv`** — the same missing-backpressure-guard bug that `scale_mask.sv` already had fixed elsewhere in the design: `fifo_rd_en` could fire on two consecutive cycles, overlapping two `mul_valid_o` results into a single output register (`m_axis_tvalid`) and silently dropping the first one. Fixed by mirroring `scale_mask.sv`'s `pipe_busy` pattern as a new `norm_pipe_busy` guard.
 
-After all four fixes, the Q·Kᵀ → softmax half of the pipeline runs end to end with **no deadlock and no timeout**: all 16 elements of the 4×4 score matrix produce a `c_v` pulse. What it does *not* yet do is produce numerically correct softmax weights — see [Known Limitations](#known-limitations--whats-next) for the one remaining open bug from this pass. Full write-up, including the attempted-and-reverted fix for that last bug, is in [`DEBUG_NOTES.md`](DEBUG_NOTES.md) (commit `1a9b18c`).
+After all four fixes, the Q·Kᵀ → softmax half of the pipeline runs end to end with **no deadlock and no timeout**: all 16 elements of the 4×4 score matrix produce a `c_v` pulse. What it does *not* yet do is produce numerically correct softmax weights — see [Known Limitations](#known-limitations--whats-next) for the one remaining open bug from this pass (commit `1a9b18c`).
 
 ## Performance Analysis
 
@@ -319,7 +316,6 @@ rtl/
   top.sv       full system integration
 tb/            standalone testbenches, one per module/subsystem, plus a shared BF16 to real helper
 scripts/       gen_rope_rom.py    : generates the RoPE sin/cos ROM content
-               gen_diagrams.py    : regenerates architecture.drawio from the RTL's own state logic
 architecture.drawio   system data flow plus per-module FSM diagrams (multi-page, draw.io format)
 ```
 
@@ -447,7 +443,7 @@ Honest status, not a marketing list:
 - **`en_scale_mask` is a per-element signal, not a static enable.** It must be driven per data element by real causal-mask logic. Tying it to a constant will mask an entire row.
 - **No weight-loading lock or handshake yet.** Nothing currently prevents a weight write from racing a computation using that same weight.
 - **Score·V tag alignment is a flagged assumption**, not a confirmed team decision. See the comment in `mod_a_input_arbiter.sv`.
-- **Softmax normalizes the whole 4×4 score matrix as one 16-element row instead of four independent 4-element rows.** `mod_a_wrapper.sv`'s `m_last` (which tells softmax "this is the last element, start normalizing") only fires once per matrix (`row_cnt==SIZE-1 && col_cnt==SIZE-1`), not once per row. Changing it to fire per row (`col_cnt==SIZE-1`) makes row 0 normalize correctly but then deadlocks on row 1 (scale_mask's single-element `pipe_busy` slot never frees up), so that change was reverted and the root cause of the row-1 deadlock is still open. Net effect right now: the pipeline runs end to end with no timeout, but softmax's output values don't match the golden model row-by-row (row sums come out ~4× too large). Full detail and the reverted diff are in [`DEBUG_NOTES.md`](DEBUG_NOTES.md).
+- **Softmax normalizes the whole 4×4 score matrix as one 16-element row instead of four independent 4-element rows.** `mod_a_wrapper.sv`'s `m_last` (which tells softmax "this is the last element, start normalizing") only fires once per matrix (`row_cnt==SIZE-1 && col_cnt==SIZE-1`), not once per row. Changing it to fire per row (`col_cnt==SIZE-1`) makes row 0 normalize correctly but then deadlocks on row 1 (scale_mask's single-element `pipe_busy` slot never frees up), so that change was reverted and the root cause of the row-1 deadlock is still open. Net effect right now: the pipeline runs end to end with no timeout, but softmax's output values don't match the golden model row-by-row (row sums come out ~4× too large).
 - **The score·V pass and the output projection (`Wo`) are still untested end to end.** `tb_top.sv` only exercises AXI-Stream in → projection/RoPE → URAM → Q·Kᵀ → scale/softmax. Feeding softmax's weights back into Module A for score·V, and the final `qkv_proj`(Wo)/`tx_fifo` stage, still only have their original module-level testbenches, not a full-chip one.
 - **Timing closure and $f_{\max}$ are not measured yet.** See [Performance Analysis](#performance-analysis) for the resource utilization numbers that are already available.
 

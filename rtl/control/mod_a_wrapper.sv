@@ -47,8 +47,7 @@
 //           softmax could normalize each row on its own instead of
 //           treating the whole matrix as one giant row, but that change
 //           introduced a second, not yet diagnosed deadlock between
-//           softmax and this drain logic and was reverted, see
-//           DEBUG_NOTES.md
+//           softmax and this drain logic and was reverted
 
 module mod_a_wrapper #(
     parameter int SIZE = 4,
@@ -57,17 +56,13 @@ module mod_a_wrapper #(
     input  logic        clk_i,
     input  logic        rst_ni,
 
-    // ==========================================
-    // 1. DATAFLOW GİRİŞİ (Otoyoldan Gelen)
-    // ==========================================
+    // dataflow input
     input  logic        s_valid,
-    input  logic [16:0] s_q_data, // 17-Bit (Tag + BF16)
-    input  logic [16:0] s_k_data, // 17-Bit (Tag + BF16)
+    input  logic [16:0] s_q_data, // 17-bit (tag + bf16)
+    input  logic [16:0] s_k_data, // 17-bit (tag + bf16)
     output logic        s_ready,
 
-    // ==========================================
-    // 2. DATAFLOW ÇIKIŞI (Otoyola Giden)
-    // ==========================================
+    // dataflow output
     output logic        m_valid,
     output logic [16:0] m_data,   // 17-Bit (Tag + BF16)
     output logic        m_last,
@@ -76,7 +71,6 @@ module mod_a_wrapper #(
 
     localparam int TOTAL_INPUT_PAIRS = SIZE * DEPTH;
 
-    // --- İç Sinyaller ---
     logic        enable_i;
     logic        start_i;
     logic        last_i;
@@ -86,18 +80,16 @@ module mod_a_wrapper #(
     logic        busy_o;
     logic [16:0] sum_out [0:SIZE-1][0:SIZE-1];
 
-    // --- Giriş Sayacı (Auto Start/Last Üretici) ---
+    // input counter, generates start_i/last_i automatically
     logic [$clog2(TOTAL_INPUT_PAIRS)-1:0] in_cnt;
 
-    // --- Çıkış Serileştirici (Serializer) Sinyalleri ---
+    // output serializer state
     logic        drain_active;
     logic [$clog2(SIZE)-1:0] row_cnt;
     logic [$clog2(SIZE)-1:0] col_cnt;
     logic [16:0] out_buffer [0:SIZE-1][0:SIZE-1];
 
-    // ==========================================
-    // MODÜL A (qk_array) INSTANCE
-    // ==========================================
+    // Module A (qk_array) instance
     qk_array #(
         .SIZE(SIZE)
     ) u_qk_array (
@@ -116,16 +108,10 @@ module mod_a_wrapper #(
         .busy_o   (busy_o)
     );
 
-    // ==========================================
-    // GİRİŞ KONTROL MANTIĞI
-    // ==========================================
-    // Çıkış boşaltılırken (drain_active) Modül A'yı dondur.
-    assign enable_i = !drain_active; 
-    
-    // Hazır sinyalini otoyola ilet
+    // freeze Module A while the previous result is draining
+    assign enable_i = !drain_active;
     assign s_ready  = ready_o && !drain_active;
 
-    // Sayaca bağlı dinamik sinyaller
     assign start_i = (in_cnt == '0) && s_valid;
     assign last_i  = (in_cnt == TOTAL_INPUT_PAIRS - 1) && s_valid;
 
@@ -140,28 +126,25 @@ module mod_a_wrapper #(
         end
     end
 
-    // ==========================================
-    // ÇIKIŞ SERİLEŞTİRİCİ MANTIĞI (Serializer)
-    // ==========================================
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
             drain_active <= 1'b0;
             row_cnt      <= '0;
             col_cnt      <= '0;
         end else begin
-            // Modül A çarpımı bitirdiğinde devasa matrisi yakala
+            // Module A finished, latch the whole result matrix
             if (done_o) begin
                 drain_active <= 1'b1;
                 out_buffer   <= sum_out;
                 row_cnt      <= '0;
                 col_cnt      <= '0;
-            end 
-            // Yakalanan matrisi seri olarak otoyola aktar
+            end
+            // drain the latched matrix out serially
             else if (drain_active && m_ready) begin
                 if (col_cnt == SIZE - 1) begin
                     col_cnt <= '0;
                     if (row_cnt == SIZE - 1) begin
-                        drain_active <= 1'b0; // Tüm elemanlar gönderildi, boşaltım bitti
+                        drain_active <= 1'b0;
                         row_cnt      <= '0;
                     end else begin
                         row_cnt <= row_cnt + 1'b1;
@@ -173,7 +156,6 @@ module mod_a_wrapper #(
         end
     end
 
-    // Otoyola Çıkış Atamaları
     assign m_valid = drain_active;
     assign m_data  = drain_active ? out_buffer[row_cnt][col_cnt] : 17'b0;
     // REVERTED 2026-08-12: tried changing this to pulse once per row

@@ -56,10 +56,9 @@
 //
 //   notes:
 //           this is the level every module level testbench stops short
-//           of, DEBUG_NOTES.md documents a first full simulation of this
-//           exact assembled pipeline finding and fixing four further
-//           integration bugs that no single module's own testbench could
-//           reach
+//           of. A first full simulation of this exact assembled pipeline
+//           found and fixed four further integration bugs that no single
+//           module's own testbench could reach
 
 module attention_engine_top #(
     parameter DATA_WIDTH_f32  = 32,
@@ -91,9 +90,7 @@ module attention_engine_top #(
     input  logic                       w_we_q, w_we_k, w_we_v, w_we_o
 );
 
-    // =========================================================
-    // İÇ KABLOLAR
-    // =========================================================
+    // internal wires
     logic a_out_last, a_w0_last;
     logic [DBUF_ADDR_WIDTH-1:0] dbuf_read_addr;
     logic [DATA_WIDTH_bf16-1:0] dbuf_read_data; 
@@ -136,9 +133,7 @@ module attention_engine_top #(
     logic c_v, c_r, c_out_last;      // last pini eklendi
     logic [16:0] c_d;
 
-    // =========================================================
-    // 1. AXI, DBUF VE STREAMER
-    // =========================================================
+    // AXI, dbuf and the read streamer
     logic dbuf_rx_we, dbuf_rx_full, internal_rx_last;
     logic [DATA_WIDTH_bf16-1:0] dbuf_rx_data;
     logic swap_buffers;
@@ -165,9 +160,7 @@ module attention_engine_top #(
         .m_valid(dbuf_v), .m_data(dbuf_d), .m_last(dbuf_last), .m_ready(dbuf_r)
     );
 
-    // =========================================================
-    // 2. RoPE POZİSYON SAYACI
-    // =========================================================
+    // RoPE position counter
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             pos_cnt <= '0;
@@ -177,9 +170,7 @@ module attention_engine_top #(
         end
     end
 
-    // =========================================================
-    // 3. MODÜL B (projection_block) -> HİÇ DURMAZ!
-    // =========================================================
+    // Module B (projection_block), never stalls
     projection_block #(
         .DATA_WIDTH(16), .D_MODEL(D_MODEL), .D_OUT_Q(D_MODEL), .D_OUT_KV(D_MODEL),
         .MAX_POS(MAX_POS), .NUM_Q_HEADS(8), .NUM_KV_HEADS(2)
@@ -203,9 +194,7 @@ module attention_engine_top #(
         .out_data_o(out_proj_d), .out_valid_o(out_proj_v), .out_last_o(out_proj_last), .out_ready_i(out_proj_r)
     );
 
-    // =========================================================
-    // 4. URAM PING-PONG YÖNETİCİSİ VE BELLEKLER
-    // =========================================================
+    // URAM ping-pong controller and memories
     logic q_uram_rdy, k_uram_rdy, v_uram_rdy;
     assign q_proj_r = q_uram_rdy;
     assign k_proj_r = k_uram_rdy;
@@ -238,9 +227,7 @@ module attention_engine_top #(
         .rd_en(v_uram_ren), .rd_addr(v_uram_raddr), .rdata(v_rdata), .rvalid(v_uram_rvalid)
     );
 
-    // =========================================================
-    // 5. MODÜL A HAKEMİ 
-    // =========================================================
+    // Module A input arbiter
     logic qk_valid, qk_ready;
     assign qk_valid = q_uram_rvalid && k_uram_rvalid; 
 
@@ -251,9 +238,7 @@ module attention_engine_top #(
         .mod_a_valid(a_in_v), .mod_a_data_l(a_in_q), .mod_a_data_t(a_in_k), .mod_a_tag(), .mod_a_ready(a_in_r)
     );
 
-    // =========================================================
-    // 6. MODÜL A (SİSTOLİK DİZİ) VE WRAPPER
-    // =========================================================
+    // Module A (systolic array) and its wrapper
     mod_a_wrapper #(.SIZE(4), .DEPTH(D_MODEL)) u_mod_a_wrap (
         .clk_i(clk), .rst_ni(rst_n),
         .s_valid(a_in_v), .s_q_data(a_in_q), .s_k_data(a_in_k), .s_ready(a_in_r),
@@ -266,9 +251,7 @@ module attention_engine_top #(
         .b_valid(a_w0_v), .b_data(a_w0_d), .b_last(a_w0_last), .b_ready(a_w0_r), .mod_a_last(a_out_last)
     );
 
-  // =========================================================
-    // 7. MODÜL C (SCALE + MASK + SOFTMAX WRAPPER)
-    // =========================================================
+    // Module C (scale + mask + softmax wrapper)
     scale_mask_softmax_wrapper #(
         .DATA_WIDTH(16),
         .MAX_ROW_LEN(D_MODEL) 
@@ -276,38 +259,31 @@ module attention_engine_top #(
         .clk(clk), 
         .rst_n(rst_n),
 
-        // --- Hardcoded Konfigürasyon ---
-        // 1 / sqrt(64) = 0.125 (BF16 Karşılığı: 16'h3E00)
-        .scale_factor(16'h3E00), 
-        // GECICI: gercek eleman-bazli causal mask ureticisi henuz yok.
-        // 1'b1 (her elemani hep -inf'e maskele) sentezde sabit deger
-        // oldugu icin Vivado softmax/Module A'nin buyuk bolumunu "olu
-        // mantik" sayip siliyordu (utilization raporunu anlamsizlastiriyordu),
-        // ustune ustluk softmax'i da fonksiyonel olarak kirar. 0 (hic
-        // maskeleme yok) gercek causal mask gelene kadar daha dogru bir
-        // varsayilan.
+        // 1 / sqrt(64) = 0.125, bf16 16'h3E00
+        .scale_factor(16'h3E00),
+        // real per-element causal mask generator doesn't exist yet; a
+        // constant 1 (mask everything to -inf) synthesizes as a fixed
+        // value, so Vivado proves most of softmax/Module A "dead" and
+        // deletes it, and breaks softmax functionally too. 0 (no masking)
+        // is the more correct default until real causal mask logic exists
         .en_scale_mask(1'b0),
-        .ext_stall(1'b0),        // Otoyol mantığında dışarıdan durdurma yok
+        .ext_stall(1'b0),
 
-        // --- Giriş AXI-Stream ---
-        .s_axis_tdata(c_in_d[15:0]), 
-        .s_axis_tvalid(c_in_v), 
+        .s_axis_tdata(c_in_d[15:0]),
+        .s_axis_tvalid(c_in_v),
         .s_axis_tready(c_in_r),
-        .s_axis_tlast(c_in_last),    
+        .s_axis_tlast(c_in_last),
 
-        // --- Çıkış AXI-Stream ---
-        .m_axis_tdata(c_d[15:0]), 
-        .m_axis_tvalid(c_v), 
+        .m_axis_tdata(c_d[15:0]),
+        .m_axis_tvalid(c_v),
         .m_axis_tready(c_r),
-        .m_axis_tlast(c_out_last)    
+        .m_axis_tlast(c_out_last)
     );
 
-    // Çıkan veriyi 17-bit Tag (1: W0 Projeksiyonu Hedefi) ile paketle
+    // pack the outgoing value with a 17-bit tag (1 = Wo projection target)
     assign c_d[16] = 1'b1;
 
-    // =========================================================
-    // 8. ÇIKIŞ FIFO (TX)
-    // =========================================================
+    // output TX FIFO
     logic tx_full, tx_empty;
     assign out_proj_r = !tx_full;
     assign fifo_out_v = !tx_empty;

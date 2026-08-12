@@ -167,9 +167,7 @@ wire k_proj_out_v,k_proj_out_l,k_proj_out_r;
 wire q_proj_rdy, k_proj_rdy, v_proj_rdy;
 assign token_ready_o = q_proj_rdy && k_proj_rdy && v_proj_rdy;
 
-// -------- Q yolu --------
-// token -> qkv_proj(Wq) -> rope -> q_data_o (belinaya)
-
+// Q path: token -> qkv_proj(Wq) -> rope -> q_data_o (to Belinay)
 qkv_proj #(.DATA_WIDTH(DATA_WIDTH),.D_MODEL(D_MODEL),.D_OUT(D_OUT_Q)) u_proj_q(
     .clk_i(clk_i),.rst_ni(rst_ni),
     .w_data_i(wq_data_i),.w_addr_i(wq_addr_i),.w_we_i(wq_we_i),
@@ -189,9 +187,7 @@ rope #(.DATA_WIDTH(DATA_WIDTH),.D_MODEL(D_OUT_Q),.MAX_POS(MAX_POS)) u_rope_q(
     .y_last_o(q_last_o),.y_ready_i(q_ready_i)
 );
 
-// -------- K yolu --------
-// token -> qkv_proj(Wk) -> rope -> k_data_o (tahaya kv_cache)
-
+// K path: token -> qkv_proj(Wk) -> rope -> k_data_o (to Taha's kv_cache)
 qkv_proj #(.DATA_WIDTH(DATA_WIDTH),.D_MODEL(D_MODEL),.D_OUT(D_OUT_KV)) u_proj_k(
     .clk_i(clk_i),.rst_ni(rst_ni),
     .w_data_i(wk_data_i),.w_addr_i(wk_addr_i),.w_we_i(wk_we_i),
@@ -211,9 +207,7 @@ rope #(.DATA_WIDTH(DATA_WIDTH),.D_MODEL(D_OUT_KV),.MAX_POS(MAX_POS)) u_rope_k(
     .y_last_o(k_last_o),.y_ready_i(k_ready_i)
 );
 
-// -------- V yolu --------
-// token -> qkv_proj(Wv) -> direkt cikis rope yok
-
+// V path: token -> qkv_proj(Wv) -> straight out, no rope
 qkv_proj #(.DATA_WIDTH(DATA_WIDTH),.D_MODEL(D_MODEL),.D_OUT(D_OUT_KV)) u_proj_v(
     .clk_i(clk_i),.rst_ni(rst_ni),
     .w_data_i(wv_data_i),.w_addr_i(wv_addr_i),.w_we_i(wv_we_i),
@@ -224,17 +218,13 @@ qkv_proj #(.DATA_WIDTH(DATA_WIDTH),.D_MODEL(D_MODEL),.D_OUT(D_OUT_KV)) u_proj_v(
     .busy_o()
 );
 
-// -------- GQA --------
-// sadece index cevirisi veri tasimaz
-
+// GQA: index translation only, carries no vector data
 gqa_mapper #(.NUM_Q_HEADS(NUM_Q_HEADS),.NUM_KV_HEADS(NUM_KV_HEADS)) u_gqa(
     .q_head_idx_i(q_head_idx_i),
     .kv_head_idx_o(kv_head_idx_o)
 );
 
-// -------- output projection --------
-// belinaydan gelen attention sonucunu Wo ile carpip tahaya veriyor
-
+// output projection: multiplies Belinay's attention result by Wo, hands it to Taha
 qkv_proj #(.DATA_WIDTH(DATA_WIDTH),.D_MODEL(D_OUT_Q),.D_OUT(D_MODEL)) u_proj_out(
     .clk_i(clk_i),.rst_ni(rst_ni),
     .w_data_i(wo_data_i),.w_addr_i(wo_addr_i),.w_we_i(wo_we_i),

@@ -72,18 +72,14 @@ module uram_pingpong_controller #(
     input  logic clk,
     input  logic rst_n,
 
-    // ==========================================
-    // YAZMA HATTI (Modül B'den gelir, hiç durmaz)
-    // ==========================================
-    input  logic                  write_valid, // q_proj_v (Q,K,V aynı anda geçerlidir)
+    // write side, comes from Module B, never stalls
+    input  logic                  write_valid, // q_proj_v (Q,K,V valid at once)
     input  logic                  write_last,  // q_proj_last -- per-TOKEN, no
                                                  // longer used below (see note)
-    output logic [ADDR_WIDTH:0]   waddr,       // +1 bit Bank seçimi için
+    output logic [ADDR_WIDTH:0]   waddr,       // +1 bit for bank select
 
-    // ==========================================
-    // OKUMA HATTI (Modül A'yı besler)
-    // ==========================================
-    input  logic                  softmax_valid, // Modül C'den gelen ilk sonuç
+    // read side, feeds Module A
+    input  logic                  softmax_valid, // first result from Module C
 
     // qk_data_valid = q_uram_rvalid && k_uram_rvalid (this cycle's URAM read
     // result, if any); qk_ready = mod_a_input_arbiter's qk_ready (whether

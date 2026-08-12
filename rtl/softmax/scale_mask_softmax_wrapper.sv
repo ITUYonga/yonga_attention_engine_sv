@@ -62,17 +62,12 @@ module scale_mask_softmax_wrapper #(
     output logic                    m_axis_tlast
 );
 
-    // =========================================================================
-    // Internal Intermediate AXI-Stream Wires (scale_mask -> softmax)
-    // =========================================================================
+    // intermediate AXI-Stream wires, scale_mask -> softmax
     logic [DATA_WIDTH-1:0] inter_axis_tdata;
     logic                  inter_axis_tvalid;
     logic                  inter_axis_tready;
     logic                  inter_axis_tlast;
 
-    // =========================================================================
-    // Scale & Mask Sub-module Instantiation
-    // =========================================================================
     scale_mask #(
         .DATA_WIDTH(DATA_WIDTH)
     ) u_scale_mask (
@@ -97,9 +92,6 @@ module scale_mask_softmax_wrapper #(
         .m_axis_tlast   (inter_axis_tlast)
     );
 
-    // =========================================================================
-    // Softmax Sub-module Instantiation
-    // =========================================================================
     softmax #(
         .DATA_WIDTH (DATA_WIDTH),
         .MAX_ROW_LEN(MAX_ROW_LEN)

@@ -90,7 +90,7 @@ module tb_scale_mask_softmax;
         rst_n = 1;
         @(posedge clk);
 
-        // ---- Test 1: uniform row, no masking -> expect 0.25 each ----
+        // Test 1: uniform row, no masking -> expect 0.25 each
         run_row(x4, no_mask);
         tol = 0.02;
         for (int i = 0; i < ROW_LEN; i++) begin
@@ -104,8 +104,8 @@ module tb_scale_mask_softmax;
 
         repeat (10) @(posedge clk);
 
-        // ---- Test 2: last element masked -> expect ~0.333 for the first
-        //      three, ~0.0 for the masked one ----
+        // Test 2: last element masked -> expect ~0.333 for the first three,
+        // ~0.0 for the masked one
         run_row(x4, last_mask);
         tol = 0.03;
         for (int i = 0; i < ROW_LEN-1; i++) begin

@@ -78,7 +78,7 @@ module tb_top;
     // so nothing upstream of it ever blocks on m_axis backpressure.
     assign m_axis_tready = 1'b1;
 
-    // ---- golden-model ROMs/LUTs, loaded from the same files the DUT reads ----
+    // golden-model ROMs/LUTs, loaded from the same files the DUT reads
     logic [15:0] sin_rom        [0:MAX_POS*PAIR_CNT-1];
     logic [15:0] cos_rom        [0:MAX_POS*PAIR_CNT-1];
     logic [15:0] exp_table_rom  [0:255];
@@ -231,7 +231,7 @@ module tb_top;
     int errors = 0;
     int got_count = 0;
 
-    // ---- driver ----
+    // driver
     initial begin
         int out_i, in_i, t, d;
 
@@ -297,12 +297,9 @@ module tb_top;
         $display("[%0t] DEBUG all tokens streamed", $time);
     end
 
-    // ---- internal pipeline tracer: the URAM/qk_array/dbuf X-bug is fixed
-    // (dbuf.sv swap_buffers/write race), all probes for that are removed.
-    // this now watches softmax.sv's own FSM (state, add_valid_o, last_d1/
-    // last_d2, element_count, fifo empty/full, mul_valid_o) end to end,
-    // since c_v still never fires even though c_in_v now delivers all 16
-    // clean elements including tlast. ----
+    // internal pipeline tracer: watches softmax.sv's own FSM (state,
+    // add_valid_o, last_d1/last_d2, element_count, fifo empty/full,
+    // mul_valid_o) end to end
     logic [1:0] sm_state_prev;
     initial sm_state_prev = 2'bxx;
     initial begin
@@ -342,8 +339,8 @@ module tb_top;
         end
     end
 
-    // ---- checker: watches softmax's final output (dut.c_v / dut.c_d)
-    // directly, since m_axis is not reached by this test's scope ----
+    // checker: watches softmax's final output (dut.c_v / dut.c_d) directly,
+    // since m_axis is not reached by this test's scope
     initial begin
         int row, col;
         logic [15:0] got;

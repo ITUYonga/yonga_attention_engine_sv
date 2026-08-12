@@ -50,45 +50,34 @@ module uram_memory #(
     input  logic clk,
     input  logic rst_n,
 
-    // ==========================================
-    // 1. YAZMA ARAYÜZÜ (Modül B'den Gelir - Streaming)
-    // ==========================================
+    // write interface, streams in from Module B
     input  logic                  wr_en,
     input  logic [ADDR_WIDTH-1:0] wr_addr,
     input  logic [DATA_WIDTH-1:0] wr_data,
-    output logic                  ready,     // Modül B'ye "Hazırım" sinyali
+    output logic                  ready,     // ready signal back to Module B
 
-    // ==========================================
-    // 2. OKUMA ARAYÜZÜ (Modül A Hakemi/Çekirdeği'nden Gelir)
-    // ==========================================
+    // read interface, driven by Module A's input arbiter/core
     input  logic                  rd_en,
     input  logic [ADDR_WIDTH-1:0] rd_addr,
     output logic [DATA_WIDTH-1:0] rdata,
     output logic                  rvalid     // Okuma işleminin 1 cycle gecikmesi (latency) bittiğinde 1 olur
 );
 
-    // VIVADO SİHRİ: Bu etiketi gören Vivado, diziyi doğrudan çipteki URAM bloklarına haritalar!
-    (* ram_style = "ultra" *) 
+    // this attribute maps the array directly to on-chip URAM blocks
+    (* ram_style = "ultra" *)
     logic [DATA_WIDTH-1:0] mem [0:DEPTH-1];
 
-    // ==========================================
-    // YAZMA İŞLEMİ (adres dışarıdan geliyor - uram_pingpong_controller
-    // bank+pointer'ı zaten hesaplıyor, burada ikinci bir sayaca gerek yok.
-    // Önceki sürümde bu iç sayaçla üretiliyordu ve wr_addr diye bir port
-    // hiç yoktu; top.sv'nin bağlamaya çalıştığı adres gidecek yer bulamıyordu)
-    // ==========================================
+    // write address comes from outside (uram_pingpong_controller already
+    // computes the bank+pointer), no internal counter needed here
     always_ff @(posedge clk) begin
         if (wr_en) begin
             mem[wr_addr] <= wr_data;
         end
     end
 
-    assign ready   = 1'b1; // (Dataflow tasarımımızda URAM hep veri kabul edecek kadar büyük tasarlanır)
+    assign ready = 1'b1; // URAM is always sized to accept data in this dataflow design
 
-    // ==========================================
-    // OKUMA İŞLEMİ (Senkron - 1 Clock Gecikmeli)
-    // ==========================================
-    // UltraRAM'ler senkron çalışır. Adres verildikten 1 saat vuruşu sonra veri gelir.
+    // synchronous read, 1 clock of latency after the address is given
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             rdata  <= '0;

@@ -42,9 +42,8 @@
 //           currently treats one entire top level test matrix as a
 //           single row rather than one row per query, because whatever
 //           feeds s_axis_tlast today only marks the very last element of
-//           the whole matrix, see mod_a_wrapper.sv's own notes and
-//           DEBUG_NOTES.md for why a per row version was tried and
-//           reverted
+//           the whole matrix, see mod_a_wrapper.sv's own notes for why a
+//           per row version was tried and reverted
 //
 //           found and fixed several real bugs in getting this far.
 //           add_busy used to be set one cycle late (derived from an
