@@ -106,12 +106,12 @@ $$
 \theta(\text{pos}, i) = \text{pos} \cdot \text{base}^{-2i/d_{\text{model}}}, \qquad \text{base} = 10000
 $$
 
-This project pairs element $i$ with element $i + D\_MODEL/2$ (the "rotate-half" convention used by LLaMA), rather than with its immediate neighbor.
+This project pairs element $i$ with element $i + D_{\text{MODEL}}/2$ (the "rotate-half" convention used by LLaMA), rather than with its immediate neighbor.
 
 **GQA.** With $N_Q$ query heads and $N_{KV}$ key/value heads ($N_Q$ divisible by $N_{KV}$), query head $q$ reads from key/value head:
 
 $$
-\text{kv\_head}(q) = \left\lfloor \frac{q}{N_Q / N_{KV}} \right\rfloor
+\text{kv}_{\text{head}}(q) = \left\lfloor \frac{q}{N_Q / N_{KV}} \right\rfloor
 $$
 
 No data is duplicated or moved. Only the read address changes.
