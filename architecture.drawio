@@ -1,332 +1,332 @@
 <?xml version="1.0" ?>
 <mxfile host="app.diagrams.net">
-  <diagram name="System Architecture" id="page41">
-    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1480" pageHeight="830" math="0" shadow="0">
+  <diagram name="System Architecture" id="page65">
+    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1870" pageHeight="760" background="#FFFFFF" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="b1" value="AXI-Stream In&#10;FP32" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="40" y="260" width="140" height="60" as="geometry"/>
+        <mxCell id="b1" value="AXI-Stream In&#10;(FP32)" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="260" width="150" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="b2" value="bf16_comb&#10;FP32 -&gt; BF16" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
-          <mxGeometry x="220" y="260" width="140" height="60" as="geometry"/>
+        <mxCell id="b2" value="bf16_comb&#10;FP32 -&gt; BF16" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="230" y="260" width="150" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="b3" value="dbuf&#10;ping-pong buffer" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="400" y="260" width="140" height="60" as="geometry"/>
+        <mxCell id="b3" value="dbuf&#10;ping-pong buffer" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="260" width="150" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="b4" value="dbuf_read_streamer" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="580" y="260" width="160" height="60" as="geometry"/>
+        <mxCell id="b4" value="dbuf_read_streamer" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="610" y="260" width="170" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="g5" value="projection_block" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=13;fillColor=none;strokeColor=#82b366;dashed=1;" vertex="1" parent="1">
-          <mxGeometry x="780" y="120" width="300" height="300" as="geometry"/>
+        <mxCell id="b5" value="projection_block" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=none;strokeColor=#000000;dashed=1;verticalAlign=top;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="810" y="100" width="320" height="370" as="geometry"/>
         </mxCell>
-        <mxCell id="b6" value="qkv_proj (Wq)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="800" y="160" width="260" height="40" as="geometry"/>
+        <mxCell id="b6" value="qkv_proj (Wq)" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="830" y="150" width="280" height="45" as="geometry"/>
         </mxCell>
-        <mxCell id="b7" value="rope (Q)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="800" y="210" width="260" height="40" as="geometry"/>
+        <mxCell id="b7" value="rope (Q)" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="830" y="205" width="280" height="45" as="geometry"/>
         </mxCell>
-        <mxCell id="b8" value="qkv_proj (Wk)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="800" y="260" width="260" height="40" as="geometry"/>
+        <mxCell id="b8" value="qkv_proj (Wk)" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="830" y="260" width="280" height="45" as="geometry"/>
         </mxCell>
-        <mxCell id="b9" value="rope (K)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="800" y="310" width="260" height="40" as="geometry"/>
+        <mxCell id="b9" value="rope (K)" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="830" y="315" width="280" height="45" as="geometry"/>
         </mxCell>
-        <mxCell id="b10" value="qkv_proj (Wv)  (no RoPE)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="800" y="360" width="260" height="40" as="geometry"/>
+        <mxCell id="b10" value="qkv_proj (Wv) -- no RoPE" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="830" y="370" width="280" height="45" as="geometry"/>
         </mxCell>
-        <mxCell id="b11" value="gqa_mapper&#10;head index only" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="800" y="410" width="260" height="30" as="geometry"/>
+        <mxCell id="b11" value="gqa_mapper -- head index only" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="830" y="425" width="280" height="35" as="geometry"/>
         </mxCell>
-        <mxCell id="b12" value="URAM ping-pong&#10;(Q / K / V store)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="1140" y="260" width="180" height="80" as="geometry"/>
+        <mxCell id="b12" value="URAM ping-pong&#10;(Q / K / V store)" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="250" width="200" height="90" as="geometry"/>
         </mxCell>
-        <mxCell id="b13" value="Module A&#10;shared SIZE x SIZE PE array&#10;arbiter picks Q.K^T vs score.V by tag&#10;router sends result out by tag" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
-          <mxGeometry x="1140" y="400" width="220" height="90" as="geometry"/>
+        <mxCell id="b13" value="Module A&#10;shared SIZE x SIZE PE array&#10;&#10;arbiter: Q.K^T vs score.V by tag&#10;router: sends result out by tag" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="400" width="250" height="140" as="geometry"/>
         </mxCell>
-        <mxCell id="b14" value="scale_mask" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
-          <mxGeometry x="1140" y="540" width="220" height="40" as="geometry"/>
+        <mxCell id="b14" value="scale_mask" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="400" width="200" height="45" as="geometry"/>
         </mxCell>
-        <mxCell id="b15" value="softmax&#10;(exp_lut / recip_lut / row_fifo)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
-          <mxGeometry x="1140" y="600" width="220" height="60" as="geometry"/>
+        <mxCell id="b15" value="softmax&#10;(exp_lut / recip_lut / row_fifo)" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="470" width="200" height="70" as="geometry"/>
         </mxCell>
-        <mxCell id="b16" value="qkv_proj (Wo)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="800" y="540" width="260" height="40" as="geometry"/>
+        <mxCell id="b16" value="qkv_proj (Wo)" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="830" y="620" width="280" height="45" as="geometry"/>
         </mxCell>
-        <mxCell id="b17" value="tx_fifo" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="400" y="540" width="140" height="60" as="geometry"/>
+        <mxCell id="b17" value="tx_fifo" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="620" width="150" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="b18" value="bf16_convert&#10;BF16 -&gt; FP32" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
-          <mxGeometry x="220" y="540" width="140" height="60" as="geometry"/>
+        <mxCell id="b18" value="bf16_convert&#10;BF16 -&gt; FP32" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="230" y="620" width="150" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="b19" value="AXI-Stream Out&#10;FP32" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="40" y="540" width="140" height="60" as="geometry"/>
+        <mxCell id="b19" value="AXI-Stream Out&#10;(FP32)" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="150" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="e20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b1" target="b2">
+        <mxCell id="b20" value="NOTE: Module A is instantiated ONCE.&#10;The same physical array computes both&#10;Q.K^T and score.V, distinguished by a&#10;1-bit tag carried alongside the data." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="620" width="300" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="e45" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b1" target="b2">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b2" target="b3">
+        <mxCell id="e46" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b2" target="b3">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b3" target="b4">
+        <mxCell id="e47" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b3" target="b4">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e23" value="token" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b4" target="b6">
+        <mxCell id="e48" value="token" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b4" target="b6">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e24" value="token" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b4" target="b8">
+        <mxCell id="e49" value="token" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b4" target="b8">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e25" value="token" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b4" target="b10">
+        <mxCell id="e50" value="token" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b4" target="b10">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b6" target="b7">
+        <mxCell id="e51" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b6" target="b7">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e27" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b8" target="b9">
+        <mxCell id="e52" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b8" target="b9">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e28" value="Q" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=1;exitY=0.3;exitDx=0;exitDy=0;" edge="1" parent="1" source="b7" target="b13">
+        <mxCell id="e53" value="Q" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b7" target="b13">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e29" value="K" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b9" target="b12">
+        <mxCell id="e54" value="K" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b9" target="b12">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e30" value="V" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b10" target="b12">
+        <mxCell id="e55" value="V" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b10" target="b12">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e31" value="Q/K read" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b12" target="b13">
+        <mxCell id="e56" value="Q/K read" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitDx=0;entryDx=0;" edge="1" parent="1" source="b12" target="b13">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e32" value="Q.K^T result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b13" target="b14">
+        <mxCell id="e57" value="Q.K^T result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b13" target="b14">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e33" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b14" target="b15">
+        <mxCell id="e58" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b14" target="b15">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e34" value="weights (score.V pass)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;dashed=1;strokeColor=#b85450;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" edge="1" parent="1" source="b15" target="b13">
+        <mxCell id="e59" value="weights&#10;(score.V pass)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;dashed=1;" edge="1" parent="1" source="b15" target="b13">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e35" value="V read (score.V pass)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;dashed=1;" edge="1" parent="1" source="b12" target="b13">
+        <mxCell id="e60" value="V read&#10;(score.V pass)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;dashed=1;curved=1;exitDx=20;entryDx=20;" edge="1" parent="1" source="b12" target="b13">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e36" value="attention output" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b13" target="b16">
+        <mxCell id="e61" value="attention output" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b13" target="b16">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e37" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b16" target="b17">
+        <mxCell id="e62" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b16" target="b17">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e38" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b17" target="b18">
+        <mxCell id="e63" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b17" target="b18">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e39" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b18" target="b19">
+        <mxCell id="e64" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b18" target="b19">
           <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="b40" value="Module A is instantiated ONCE.&#10;Same physical array computes both&#10;Q.K^T and score.V, distinguished&#10;by a 1-bit tag carried with the data." style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
-          <mxGeometry x="1140" y="700" width="260" height="90" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="FSM - qkv_proj" id="page59">
-    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="560" math="0" shadow="0">
+  <diagram name="FSM - qkv_proj" id="page35">
+    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="700" background="#FFFFFF" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="s42" value="ST_LOAD&#10;collect input vector" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="60" y="220" width="140" height="50" as="geometry"/>
+        <mxCell id="b1" value="ST_LOAD&#10;collect input vector" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="220" width="200" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s43" value="ST_MUL_ISSUE&#10;pulse bf16_mul valid_i" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="320" y="60" width="140" height="50" as="geometry"/>
+        <mxCell id="b2" value="ST_MUL_ISSUE&#10;pulse bf16_mul valid_i" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="380" y="40" width="220" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s44" value="ST_MUL_WAIT&#10;wait mul valid_o" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="580" y="60" width="140" height="50" as="geometry"/>
+        <mxCell id="b3" value="ST_MUL_WAIT&#10;wait mul valid_o" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="40" width="200" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s45" value="ST_ADD_ISSUE&#10;pulse bf16_add valid_i" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="580" y="220" width="140" height="50" as="geometry"/>
+        <mxCell id="b4" value="ST_ADD_ISSUE&#10;pulse bf16_add valid_i" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="220" width="220" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s46" value="ST_ADD_WAIT&#10;wait add valid_o" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="320" y="220" width="140" height="50" as="geometry"/>
+        <mxCell id="b5" value="ST_ADD_WAIT&#10;wait add valid_o" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="380" y="220" width="200" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s47" value="ST_DRAIN&#10;stream y_mem out" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="60" y="400" width="140" height="50" as="geometry"/>
+        <mxCell id="b6" value="ST_DRAIN&#10;stream y_mem out" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="400" width="200" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="e48" value="x_valid_i &amp;&amp; !x_last_i" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s42" target="s42">
+        <mxCell id="b7" value="One shared multiplier + one shared adder,&#10;reused for every MAC step of every output&#10;element. y = W*x, D_OUT*D_MODEL MAC steps total." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="580" width="860" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="e25" value="x_valid_i &amp;&amp; !x_last_i" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitX=0.25;exitY=0;entryX=0.75;entryY=0;" edge="1" parent="1" source="b1" target="b1">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e49" value="x_last_i (vector complete)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s42" target="s43">
+        <mxCell id="e26" value="x_last_i (vector complete)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b1" target="b2">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e50" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s43" target="s44">
+        <mxCell id="e27" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b2" target="b3">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e51" value="mul_valid_o" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s44" target="s45">
+        <mxCell id="e28" value="mul_valid_o" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b3" target="b4">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e52" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s45" target="s46">
+        <mxCell id="e29" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b4" target="b5">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e53" value="add_valid_o &amp;&amp;&#10;mac_idx != D_MODEL-1&#10;(next weight element)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s46" target="s43">
+        <mxCell id="e30" value="add_valid_o, mac_idx!=D_MODEL-1&#10;(next weight element)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitDx=0;entryDx=0;" edge="1" parent="1" source="b5" target="b2">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e54" value="add_valid_o &amp;&amp; mac_idx==D_MODEL-1&#10;&amp;&amp; out_idx==D_OUT-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s46" target="s47">
+        <mxCell id="e31" value="add_valid_o, mac_idx==D_MODEL-1&#10;&amp;&amp; out_idx==D_OUT-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b5" target="b6">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e55" value="add_valid_o &amp;&amp; mac_idx==D_MODEL-1&#10;&amp;&amp; out_idx != D_OUT-1&#10;(next output element)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;strokeColor=#82b366;" edge="1" parent="1" source="s46" target="s43">
+        <mxCell id="e32" value="add_valid_o, mac_idx==D_MODEL-1&#10;&amp;&amp; out_idx!=D_OUT-1&#10;(next output element)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitDx=20;entryDx=20;" edge="1" parent="1" source="b5" target="b2">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e56" value="y_ready_i &amp;&amp; drain_ptr != D_OUT-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s47" target="s47">
+        <mxCell id="e33" value="y_ready_i &amp;&amp; drain_ptr!=D_OUT-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitX=0.25;exitY=0;entryX=0.75;entryY=0;" edge="1" parent="1" source="b6" target="b6">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e57" value="y_ready_i &amp;&amp; drain_ptr==D_OUT-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s47" target="s42">
+        <mxCell id="e34" value="y_ready_i &amp;&amp; drain_ptr==D_OUT-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b6" target="b1">
           <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="b58" value="One shared multiplier + one shared adder,&#10;reused for every MAC step of every output&#10;element. y = W*x, D_OUT*D_MODEL MAC steps total." style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="850" y="220" width="280" height="90" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="FSM - rope" id="page78">
-    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1220" pageHeight="560" math="0" shadow="0">
+  <diagram name="FSM - rope" id="page47">
+    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="750" background="#FFFFFF" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="s60" value="ST_LOAD&#10;collect vector + latch pos_i" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="60" y="220" width="140" height="50" as="geometry"/>
+        <mxCell id="b8" value="ST_LOAD&#10;collect vector + latch pos_i" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="220" width="220" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s61" value="ST_MUL_ISSUE&#10;mstep 0..3" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="320" y="60" width="140" height="50" as="geometry"/>
+        <mxCell id="b9" value="ST_MUL_ISSUE&#10;mstep 0..3" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="380" y="40" width="200" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s62" value="ST_MUL_WAIT" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="580" y="60" width="140" height="50" as="geometry"/>
+        <mxCell id="b10" value="ST_MUL_WAIT" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="40" width="180" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s63" value="ST_ADD_ISSUE&#10;(mstep 1 or 3 only)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="580" y="220" width="140" height="50" as="geometry"/>
+        <mxCell id="b11" value="ST_ADD_ISSUE&#10;(mstep 1 or 3 only)" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="220" width="220" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s64" value="ST_ADD_WAIT" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="320" y="220" width="140" height="50" as="geometry"/>
+        <mxCell id="b12" value="ST_ADD_WAIT" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="380" y="220" width="180" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s65" value="ST_DRAIN&#10;stream rotated vector out" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="60" y="400" width="140" height="50" as="geometry"/>
+        <mxCell id="b13" value="ST_DRAIN&#10;stream rotated vector out" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="400" width="220" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="e66" value="x_valid_i &amp;&amp; !x_last_i" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s60" target="s60">
+        <mxCell id="b14" value="4 micro-steps per pair (mstep 0..3):&#10;0: x1*cos -&gt; tmp1&#10;1: x2*sin, then tmp1-result = y1&#10;2: x1*sin -&gt; tmp3&#10;3: x2*cos, then tmp3+result = y2&#10;Pairing is rotate-half: x1=x[i], x2=x[i+D_MODEL/2]" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="580" width="860" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="e36" value="x_valid_i &amp;&amp; !x_last_i" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitX=0.25;exitY=0;entryX=0.75;entryY=0;" edge="1" parent="1" source="b8" target="b8">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e67" value="x_last_i" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s60" target="s61">
+        <mxCell id="e37" value="x_last_i" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b8" target="b9">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e68" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s61" target="s62">
+        <mxCell id="e38" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b9" target="b10">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e69" value="mul_valid_o &amp;&amp; mstep in {0,2}&#10;(x1*cos or x1*sin, no add needed)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;strokeColor=#82b366;" edge="1" parent="1" source="s62" target="s61">
+        <mxCell id="e39" value="mul_valid_o, mstep in 0,2&#10;(x1*cos or x1*sin, no add)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b10" target="b9">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e70" value="mul_valid_o &amp;&amp; mstep in {1,3}&#10;(needs add/sub next)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s62" target="s63">
+        <mxCell id="e40" value="mul_valid_o, mstep in 1,3&#10;(needs add/sub next)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b10" target="b11">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e71" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s63" target="s64">
+        <mxCell id="e41" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b11" target="b12">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e72" value="add_valid_o &amp;&amp; mstep==1&#10;(y1 done, start mstep 2)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s64" target="s61">
+        <mxCell id="e42" value="add_valid_o, mstep==1&#10;(y1 done, start mstep 2)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitDx=0;entryDx=0;" edge="1" parent="1" source="b12" target="b9">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e73" value="add_valid_o &amp;&amp; mstep==3 &amp;&amp;&#10;pair_idx != PAIR_CNT-1&#10;(y2 done, next pair)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;strokeColor=#82b366;" edge="1" parent="1" source="s64" target="s61">
+        <mxCell id="e43" value="add_valid_o, mstep==3,&#10;pair_idx!=PAIR_CNT-1&#10;(y2 done, next pair)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitDx=20;entryDx=20;" edge="1" parent="1" source="b12" target="b9">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e74" value="add_valid_o &amp;&amp; mstep==3 &amp;&amp;&#10;pair_idx==PAIR_CNT-1&#10;(last pair done)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s64" target="s65">
+        <mxCell id="e44" value="add_valid_o, mstep==3,&#10;pair_idx==PAIR_CNT-1&#10;(last pair done)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b12" target="b13">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e75" value="y_ready_i &amp;&amp; drain_ptr != D_MODEL-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s65" target="s65">
+        <mxCell id="e45" value="y_ready_i &amp;&amp; drain_ptr!=D_MODEL-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitX=0.25;exitY=0;entryX=0.75;entryY=0;" edge="1" parent="1" source="b13" target="b13">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e76" value="y_ready_i &amp;&amp; drain_ptr==D_MODEL-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s65" target="s60">
+        <mxCell id="e46" value="y_ready_i &amp;&amp; drain_ptr==D_MODEL-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b13" target="b8">
           <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="b77" value="4 micro-steps per pair (mstep 0..3):&#10;0: x1*cos -&gt; tmp1&#10;1: x2*sin, then tmp1-result = y1&#10;2: x1*sin -&gt; tmp3&#10;3: x2*cos, then tmp3+result = y2&#10;Pairing is rotate-half: x1=x[i], x2=x[i+D_MODEL/2]" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
-          <mxGeometry x="850" y="200" width="300" height="140" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="FSM - softmax" id="page90">
-    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="520" math="0" shadow="0">
+  <diagram name="FSM - softmax" id="page54">
+    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2160" pageHeight="620" background="#FFFFFF" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="s79" value="IDLE" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="60" y="220" width="160" height="50" as="geometry"/>
+        <mxCell id="b15" value="IDLE" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="240" width="180" height="80" as="geometry"/>
         </mxCell>
-        <mxCell id="s80" value="ACCUMULATE&#10;exp_lut -&gt; bf16_add -&gt; sum_acc" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="340" y="220" width="220" height="50" as="geometry"/>
+        <mxCell id="b16" value="ACCUMULATE&#10;exp_lut -&gt; bf16_add -&gt; sum_acc" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="480" y="240" width="380" height="80" as="geometry"/>
         </mxCell>
-        <mxCell id="s81" value="INVERT&#10;recip_lut -&gt; inv_sum_reg" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="660" y="220" width="200" height="50" as="geometry"/>
+        <mxCell id="b17" value="INVERT&#10;recip_lut -&gt; inv_sum_reg" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="240" width="320" height="80" as="geometry"/>
         </mxCell>
-        <mxCell id="s82" value="DIVIDE_NORMALIZE&#10;fifo_dout * inv_sum_reg -&gt; output" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="960" y="220" width="260" height="50" as="geometry"/>
+        <mxCell id="b18" value="DIVIDE_NORMALIZE&#10;fifo_dout * inv_sum_reg -&gt; output" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1660" y="240" width="420" height="80" as="geometry"/>
         </mxCell>
-        <mxCell id="e83" value="s_axis_tvalid &amp;&amp; s_axis_tready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s79" target="s80">
+        <mxCell id="b19" value="Row-wise softmax, 2 passes over the row:&#10;Pass 1 (ACCUMULATE): exp(x_i) into row_fifo, sum into sum_acc&#10;Pass 2 (DIVIDE_NORMALIZE): read row_fifo back, multiply by 1/sum" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="470" width="700" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="e48" value="s_axis_tvalid &amp;&amp; s_axis_tready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b15" target="b16">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e84" value="more row elements arriving" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s80" target="s80">
+        <mxCell id="e49" value="more row elements arriving" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitX=0.25;exitY=0;entryX=0.75;entryY=0;" edge="1" parent="1" source="b16" target="b16">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e85" value="add_valid_o &amp;&amp; last_d2&#10;(last element's sum landed)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s80" target="s81">
+        <mxCell id="e50" value="add_valid_o &amp;&amp; last_d2&#10;(last element's sum landed)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b16" target="b17">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e86" value="(1 cycle, latch reciprocal)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s81" target="s82">
+        <mxCell id="e51" value="(1 cycle, latch reciprocal)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b17" target="b18">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e87" value="fifo not empty yet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s82" target="s82">
+        <mxCell id="e52" value="fifo not empty yet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitX=0.25;exitY=0;entryX=0.75;entryY=0;" edge="1" parent="1" source="b18" target="b18">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e88" value="fifo_empty &amp;&amp; m_axis_tvalid&#10;&amp;&amp; m_axis_tready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;strokeColor=#82b366;" edge="1" parent="1" source="s82" target="s79">
+        <mxCell id="e53" value="fifo_empty &amp;&amp; m_axis_tvalid &amp;&amp; m_axis_tready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b18" target="b15">
           <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="b89" value="Row-wise softmax, 2 passes over the row:&#10;Pass 1 (ACCUMULATE): exp(x_i) into row_fifo, sum into sum_acc&#10;Pass 2 (DIVIDE_NORMALIZE): read row_fifo back, multiply by 1/sum" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
-          <mxGeometry x="340" y="380" width="420" height="90" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="FSM - uram_pingpong_controller" id="page102">
-    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="520" math="0" shadow="0">
+  <diagram name="FSM - uram_pingpong_controller" id="page61">
+    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1280" pageHeight="530" background="#FFFFFF" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="s91" value="ST_IDLE" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="60" y="220" width="160" height="50" as="geometry"/>
+        <mxCell id="b20" value="ST_IDLE" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="220" width="160" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s92" value="ST_READ_QK&#10;q_ren=1, k_ren=1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="340" y="220" width="200" height="50" as="geometry"/>
+        <mxCell id="b21" value="ST_READ_QK&#10;q_ren=1, k_ren=1" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="340" y="220" width="220" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s93" value="ST_WAIT_SOFTMAX" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="660" y="220" width="200" height="50" as="geometry"/>
+        <mxCell id="b22" value="ST_WAIT_SOFTMAX" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="680" y="220" width="220" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="s94" value="ST_READ_V&#10;v_ren=1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
-          <mxGeometry x="960" y="220" width="200" height="50" as="geometry"/>
+        <mxCell id="b23" value="ST_READ_V&#10;v_ren=1" style="ellipse;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="220" width="200" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="e95" value="pending_packages &gt; 0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s91" target="s92">
+        <mxCell id="b24" value="Write side (not shown) is a separate always_ff:&#10;Q/K/V land in the write-side ping-pong bank&#10;while Module A reads the other bank via this FSM." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Courier New;fontColor=#000000;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="460" width="460" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="e55" value="pending_packages &gt; 0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b20" target="b21">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e96" value="rd_ptr != MATRIX_SIZE-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s92" target="s92">
+        <mxCell id="e56" value="rd_ptr != MATRIX_SIZE-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitX=0.25;exitY=0;entryX=0.75;entryY=0;" edge="1" parent="1" source="b21" target="b21">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e97" value="rd_ptr==MATRIX_SIZE-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s92" target="s93">
+        <mxCell id="e57" value="rd_ptr==MATRIX_SIZE-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b21" target="b22">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e98" value="softmax_valid" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s93" target="s94">
+        <mxCell id="e58" value="softmax_valid" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b22" target="b23">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e99" value="rd_ptr != MATRIX_SIZE-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="s94" target="s94">
+        <mxCell id="e59" value="rd_ptr != MATRIX_SIZE-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;curved=1;exitX=0.25;exitY=0;entryX=0.75;entryY=0;" edge="1" parent="1" source="b23" target="b23">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e100" value="rd_ptr==MATRIX_SIZE-1&#10;(swap rd_bank)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;strokeColor=#82b366;" edge="1" parent="1" source="s94" target="s91">
+        <mxCell id="e60" value="rd_ptr==MATRIX_SIZE-1 (swap rd_bank)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontFamily=Courier New;fontColor=#000000;strokeColor=#000000;fontSize=10;" edge="1" parent="1" source="b23" target="b20">
           <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="b101" value="Write side (not shown) is a separate always_ff:&#10;Q/K/V land in the write-side ping-pong bank&#10;while Module A reads the other bank via this FSM." style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
-          <mxGeometry x="340" y="380" width="420" height="80" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>
