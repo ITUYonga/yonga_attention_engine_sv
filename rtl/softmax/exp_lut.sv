@@ -40,8 +40,16 @@ module exp_lut #(
         end
     end
     
-    always_ff@(posedge clk)begin
-        y_out <= exp_comb;
-    end
+    // Purely combinational: softmax.sv feeds stage1_valid (same-cycle as
+    // stage1_data) straight into bf16_add's valid_i alongside stage1_exp_data
+    // as if both came from the same instant. A registered y_out here used to
+    // make stage1_exp_data lag stage1_data by 1 cycle, so every accumulate
+    // silently summed the *previous* element's exp value instead of its own,
+    // and the row_fifo entry written alongside it was equally off by one.
+    // This was invisible whenever every element in a row shared the same
+    // value (softmax(all-zero row) -> uniform 0.25, exactly what the
+    // "no mask" test used), but broke as soon as one element's value
+    // actually differed from its neighbors (the masked-element test).
+    assign y_out = exp_comb;
 
 endmodule

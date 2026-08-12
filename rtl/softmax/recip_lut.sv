@@ -19,9 +19,18 @@ module recip_lut #(
 
     // ------------------------------------------------------------------------
     // 1) Exponent Transformation: E_out = 254 - E_in
+    //
+    // This is only correct when the input mantissa is exactly 0 (input is
+    // an exact power of two, so 1/(1.mantissa) = 1.0 exactly, needing no
+    // renormalization). For every other input, 1/(1.mantissa) lands in
+    // (0.5, 1), which after renormalizing back into the [1, 2) range needs
+    // one extra exponent decrement. Skipping that made every reciprocal of
+    // a non-power-of-two input come out exactly 2x too large (e.g. 1/3.0
+    // computed as ~0.667 instead of ~0.333) even though the ROM's mantissa
+    // values already assume this extra decrement was applied.
     // ------------------------------------------------------------------------
     logic [7:0] exp_out;
-    assign exp_out = 8'd254 - exp_in;
+    assign exp_out = (mant_in == 7'b0) ? (8'd254 - exp_in) : (8'd253 - exp_in);
 
     // ------------------------------------------------------------------------
     // 2) Mantissa ROM Lookup
@@ -50,9 +59,13 @@ module recip_lut #(
         end
     end
 
-    // Registered output for 1 clock cycle latency
-    always_ff @(posedge clk) begin
-        y_out <= recip_comb;
-    end
+    // Purely combinational: softmax.sv latches inv_sum_reg <= recip_out on
+    // the very cycle sum_acc first holds its final row total (the INVERT
+    // state), assuming both are available together. A registered y_out
+    // here used to make recip_out lag x_in by 1 cycle, so inv_sum_reg
+    // captured the reciprocal of the PREVIOUS (incomplete) sum_acc instead
+    // of the final one -- the same latency-vs-consumer mismatch already
+    // found and fixed in exp_lut.sv.
+    assign y_out = recip_comb;
 
 endmodule
