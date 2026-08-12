@@ -1,0 +1,38 @@
+module mod_a_input_arbiter #(parameter DATA_WIDTH = 16) (
+    input  logic clk, rst_n,
+    // Softmax'ten (Modül C) Gelenler
+    input  logic                  c_valid,
+    input  logic [DATA_WIDTH-1:0] c_data,
+    output logic                  c_ready,
+    // URAM_V'den gelen veri
+    input  logic [DATA_WIDTH-1:0] v_rdata, 
+    // QxK URAM'lardan Gelenler
+    input  logic                  qk_valid,
+    input  logic [DATA_WIDTH-1:0] q_data, k_data,
+    output logic                  qk_ready,
+    // Tek Modül A'ya Giden
+    output logic                  mod_a_valid,
+    output logic [DATA_WIDTH-1:0] mod_a_data_l, mod_a_data_t,
+    output logic                  mod_a_tag,
+    input  logic                  mod_a_ready
+);
+    // V Matrisi Gecikme Senkronizasyonu (Shadow Register)
+    logic [DATA_WIDTH-1:0] del_c_data; logic del_c_valid;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin del_c_valid <= 1'b0; del_c_data <= '0; end 
+        else if (mod_a_ready) begin del_c_valid <= c_valid; del_c_data <= c_data; end
+    end
+
+    always_comb begin
+        qk_ready = 1'b0; c_ready = 1'b0; mod_a_valid = 1'b0; mod_a_tag = 1'b0;
+        mod_a_data_l = '0; mod_a_data_t = '0;
+
+        if (del_c_valid) begin // Öncelik Softmax (Tag 1)
+            mod_a_valid = 1'b1; mod_a_data_l = del_c_data; mod_a_data_t = v_rdata; mod_a_tag = 1'b1;
+            c_ready = mod_a_ready;
+        end else if (qk_valid) begin // Sonra QxK (Tag 0)
+            mod_a_valid = 1'b1; mod_a_data_l = q_data; mod_a_data_t = k_data; mod_a_tag = 1'b0;
+            qk_ready = mod_a_ready;
+        end
+    end
+endmodule
