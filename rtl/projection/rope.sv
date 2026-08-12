@@ -1,5 +1,4 @@
 // FUNC_ROPE : Adds position info to a vector by rotating it with sin/cos
-// Can Erturk  21.07.2026
 //
 //   Purpose:  Takes one Q vector or one K vector (this module gets used
 //             twice, once wired to Q and once wired to K, V never goes
@@ -83,14 +82,11 @@
 //           an add and wait for that valid_o too, instead of assuming
 //           either result is ready the same cycle it was issued
 //
-//   changelog:
-//           07.08.2026 - x_data_i widened from [DATA_WIDTH-1:0] to
-//                        [DATA_WIDTH:0] (16-bit -> 17-bit) so the port
-//                        width matches the 17-bit buses used everywhere
-//                        else in the design (Belinay's bf16 units, dbuf,
-//                        axi_stream_if). the incoming tag bit is stripped
-//                        at x_mem write time, internal computation stays
-//                        16-bit, output is re-tagged with SRC_TAG_CAN.
+//           x_data_i is 17 bits wide, not 16, so its port width matches
+//           the 17-bit buses used everywhere else in the design
+//           (Belinay's bf16 units, dbuf, axi_stream_if). the incoming tag
+//           bit is stripped at x_mem write time, internal computation
+//           stays 16-bit, output is re-tagged with SRC_TAG_CAN
 
 module rope #(
     parameter int DATA_WIDTH = 16,

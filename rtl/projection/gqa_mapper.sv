@@ -1,5 +1,4 @@
 // FUNC_GQA_MAPPER : Tells a Q head which KV head it is allowed to use
-// Can Erturk  21.07.2026
 //
 //   Purpose:  In grouped query attention there are more Q heads than KV
 //             heads, groups of Q heads share the same K and V. Example

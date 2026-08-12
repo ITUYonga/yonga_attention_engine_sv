@@ -1,5 +1,4 @@
 // FUNC_QKV_PROJ : Turns one token vector into one projected output vector
-// Can Erturk  21.07.2026
 //
 //   Purpose:  Multiplies the input token vector with a weight matrix and
 //             adds the results up to get the projected vector. This is
@@ -74,14 +73,11 @@
 //           the same cycle, this adds latency per MAC step but is
 //           functionally the same multiply-accumulate as before
 //
-//   changelog:
-//           07.08.2026 - x_data_i widened from [DATA_WIDTH-1:0] to
-//                        [DATA_WIDTH:0] (16-bit -> 17-bit) so the port
-//                        width matches the 17-bit buses used everywhere
-//                        else in the design (Belinay's bf16 units, dbuf,
-//                        axi_stream_if). the incoming tag bit is stripped
-//                        at x_mem write time, internal computation stays
-//                        16-bit, output is re-tagged with SRC_TAG_CAN.
+//           x_data_i is 17 bits wide, not 16, so its port width matches
+//           the 17-bit buses used everywhere else in the design
+//           (Belinay's bf16 units, dbuf, axi_stream_if). the incoming tag
+//           bit is stripped at x_mem write time, internal computation
+//           stays 16-bit, output is re-tagged with SRC_TAG_CAN
 
 module qkv_proj #(
     parameter int DATA_WIDTH = 16,
