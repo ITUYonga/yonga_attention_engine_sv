@@ -26,6 +26,7 @@ function automatic logic [15:0] real_to_bf16(input real r);
     real   ar, mant;
     int    exp_val;
     int    mant_bits;
+    logic [7:0] exp_field;
     begin
         if (r == 0.0) begin
             real_to_bf16 = 16'h0000;
@@ -50,7 +51,8 @@ function automatic logic [15:0] real_to_bf16(input real r);
                 exp_val   = exp_val + 1;
             end
 
-            real_to_bf16 = {sign[0:0], (exp_val + 127)[7:0], mant_bits[6:0]};
+            exp_field = exp_val + 127;
+            real_to_bf16 = {sign[0], exp_field, mant_bits[6:0]};
         end
     end
 endfunction

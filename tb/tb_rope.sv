@@ -48,16 +48,19 @@ module tb_rope;
 
     task automatic run_vector(input int pos, input real x_vec [0:D_MODEL-1]);
         begin
-            pos_i = pos[$clog2(MAX_POS)-1:0];
+            pos_i <= pos[$clog2(MAX_POS)-1:0];
+            // Nonblocking so the DUT's own always_ff (sampling x_data_i/
+            // x_valid_i at this same edge) can never race a blocking assign
+            // made right before @(posedge) -- see tb_bf16_add.sv.
             for (int m = 0; m < D_MODEL; m++) begin
                 wait (x_ready_o == 1'b1);
-                x_data_i = {1'b0, real_to_bf16(x_vec[m])};
-                x_valid_i = 1'b1;
-                x_last_i = (m == D_MODEL-1);
+                x_data_i <= {1'b0, real_to_bf16(x_vec[m])};
+                x_valid_i <= 1'b1;
+                x_last_i <= (m == D_MODEL-1);
                 @(posedge clk_i);
             end
-            x_valid_i = 1'b0;
-            x_last_i = 1'b0;
+            x_valid_i <= 1'b0;
+            x_last_i <= 1'b0;
 
             drain_cnt = 0;
             while (drain_cnt < D_MODEL) begin

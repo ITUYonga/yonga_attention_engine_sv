@@ -22,16 +22,21 @@ module tb_bf16_mul;
 
     always #5 clk_i = ~clk_i;
 
+    // Nonblocking, clock-synchronized stimulus -- see tb_bf16_add.sv for why
+    // a blocking-assign-before-@(posedge) pattern here races with the DUT's
+    // always_ff reading the same signals at the same edge.
     task automatic check_mul(real a, real b);
         real expected, got;
         begin
-            a_in = {1'b0, real_to_bf16(a)};
-            b_in = {1'b0, real_to_bf16(b)};
-            valid_i = 1'b1;
-            @(posedge clk_i);
-            valid_i = 1'b0;
-            wait (valid_o == 1'b1);
-            @(negedge clk_i);
+            @(posedge clk_i);          // sync point
+            a_in <= {1'b0, real_to_bf16(a)};
+            b_in <= {1'b0, real_to_bf16(b)};
+            valid_i <= 1'b1;
+            @(posedge clk_i);          // stage 0 -> stage 1 captures a_in/b_in
+            valid_i <= 1'b0;
+            @(posedge clk_i);          // stage 1 -> stage 2
+            @(posedge clk_i);          // stage 2 -> valid_o/result_mul_o now updated
+            #1;                        // let the NBA update settle before reading
             expected = a * b;
             got = bf16_to_real(result_mul_o[15:0]);
             checked++;
@@ -41,7 +46,6 @@ module tb_bf16_mul;
             end else begin
                 $display("PASS mul(%0f, %0f) = %0f", a, b, got);
             end
-            @(posedge clk_i);
         end
     endtask
 
@@ -51,7 +55,6 @@ module tb_bf16_mul;
         a_in = '0; b_in = '0;
         repeat (3) @(posedge clk_i);
         rst_ni = 1;
-        @(posedge clk_i);
 
         check_mul(2.0, 3.0);
         check_mul(-2.0, 4.0);

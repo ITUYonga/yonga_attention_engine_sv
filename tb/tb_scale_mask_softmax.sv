@@ -47,17 +47,27 @@ module tb_scale_mask_softmax;
     task automatic run_row(input real x_vals [0:ROW_LEN-1], input bit mask_vals [0:ROW_LEN-1]);
         begin
             got_cnt = 0;
+            // Nonblocking so the DUT's own always_ff (sampling s_axis_tdata/
+            // s_axis_tvalid at this same edge) can never race a blocking
+            // assign made right before @(posedge) -- see tb_bf16_add.sv.
+            //
+            // Hold each element constant and re-check (valid && ready) at
+            // every edge until it is actually accepted, instead of assuming
+            // one wait-then-advance is enough -- see tb_qk_array.sv, where
+            // that assumption silently dropped a data element whenever
+            // tready fell after the wait already succeeded.
             for (int i = 0; i < ROW_LEN; i++) begin
-                wait (s_axis_tready == 1'b1);
-                s_axis_tdata = real_to_bf16(x_vals[i]);
-                en_scale_mask = mask_vals[i];
-                s_axis_tvalid = 1'b1;
-                s_axis_tlast = (i == ROW_LEN-1);
-                @(posedge clk);
+                s_axis_tdata  <= real_to_bf16(x_vals[i]);
+                en_scale_mask <= mask_vals[i];
+                s_axis_tvalid <= 1'b1;
+                s_axis_tlast  <= (i == ROW_LEN-1);
+                do begin
+                    @(posedge clk);
+                end while (!(s_axis_tvalid && s_axis_tready));
             end
-            s_axis_tvalid = 1'b0;
-            s_axis_tlast = 1'b0;
-            en_scale_mask = 1'b0;
+            s_axis_tvalid <= 1'b0;
+            s_axis_tlast <= 1'b0;
+            en_scale_mask <= 1'b0;
             wait (got_cnt >= ROW_LEN);
             @(posedge clk);
         end

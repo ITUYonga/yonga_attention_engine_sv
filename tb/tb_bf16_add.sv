@@ -22,16 +22,23 @@ module tb_bf16_add;
 
     always #5 clk_i = ~clk_i;
 
+    // Stimulus is driven with nonblocking assignments, synchronized to a
+    // clock edge, so there is no possible race between the testbench
+    // updating a_in/b_in/valid_i and the DUT's always_ff reading them at
+    // the same edge (a blocking-assign-before-@(posedge) pattern here was
+    // empirically racing and reading the PREVIOUS check's operands).
     task automatic check_add(real a, real b);
         real expected, got;
         begin
-            a_in = {1'b0, real_to_bf16(a)};
-            b_in = {1'b0, real_to_bf16(b)};
-            valid_i = 1'b1;
-            @(posedge clk_i);
-            valid_i = 1'b0;
-            wait (valid_o == 1'b1);
-            @(negedge clk_i);
+            @(posedge clk_i);          // sync point
+            a_in <= {1'b0, real_to_bf16(a)};
+            b_in <= {1'b0, real_to_bf16(b)};
+            valid_i <= 1'b1;
+            @(posedge clk_i);          // stage 0 -> stage 1 captures a_in/b_in
+            valid_i <= 1'b0;
+            @(posedge clk_i);          // stage 1 -> stage 2
+            @(posedge clk_i);          // stage 2 -> valid_o/result_sum_o now updated
+            #1;                        // let the NBA update settle before reading
             expected = a + b;
             got = bf16_to_real(result_sum_o[15:0]);
             checked++;
@@ -41,7 +48,6 @@ module tb_bf16_add;
             end else begin
                 $display("PASS add(%0f, %0f) = %0f", a, b, got);
             end
-            @(posedge clk_i);
         end
     endtask
 
@@ -51,7 +57,6 @@ module tb_bf16_add;
         a_in = '0; b_in = '0;
         repeat (3) @(posedge clk_i);
         rst_ni = 1;
-        @(posedge clk_i);
 
         check_add(1.0, 2.0);
         check_add(4.0, -1.0);

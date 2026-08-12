@@ -61,27 +61,30 @@ module tb_qkv_proj;
         @(posedge clk_i);
 
         // load weights: address = out_idx*D_MODEL + mac_idx
+        // Nonblocking so the DUT's own always_ff (which samples w_addr_i/
+        // w_data_i/w_we_i at this same edge) can never race a blocking
+        // assign made right before @(posedge) -- see tb_bf16_add.sv.
         for (int o = 0; o < D_OUT; o++) begin
             for (int m = 0; m < D_MODEL; m++) begin
-                w_addr_i = (o*D_MODEL+m);
-                w_data_i = real_to_bf16(w_mat[o][m]);
-                w_we_i = 1'b1;
+                w_addr_i <= (o*D_MODEL+m);
+                w_data_i <= real_to_bf16(w_mat[o][m]);
+                w_we_i <= 1'b1;
                 @(posedge clk_i);
             end
         end
-        w_we_i = 1'b0;
+        w_we_i <= 1'b0;
         @(posedge clk_i);
 
         // stream the token vector in, one element per cycle
         for (int m = 0; m < D_MODEL; m++) begin
             wait (x_ready_o == 1'b1);
-            x_data_i = {1'b0, real_to_bf16(x_vec[m])};
-            x_valid_i = 1'b1;
-            x_last_i = (m == D_MODEL-1);
+            x_data_i <= {1'b0, real_to_bf16(x_vec[m])};
+            x_valid_i <= 1'b1;
+            x_last_i <= (m == D_MODEL-1);
             @(posedge clk_i);
         end
-        x_valid_i = 1'b0;
-        x_last_i = 1'b0;
+        x_valid_i <= 1'b0;
+        x_last_i <= 1'b0;
 
         // drain the output vector, checking against the expected values
         out_idx = 0;

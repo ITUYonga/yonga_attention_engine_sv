@@ -59,16 +59,31 @@ module tb_qk_array;
         rst_ni = 1;
         @(posedge clk_i);
 
+        // Nonblocking so the DUT's own always_ff (sampling s_q_data/s_k_data
+        // at this same edge) can never race a blocking assign made right
+        // before @(posedge) -- see tb_bf16_add.sv.
+        //
+        // A plain "wait(s_ready) then present-and-advance-one-edge" is not
+        // enough here: qk_array can drop s_ready for a cycle (while it
+        // dispatches a buffered slice to the PE array) *after* the wait
+        // already succeeded, so the edge that follows does not actually
+        // accept the pair. The old version of this loop advanced to the
+        // next pair regardless, silently overwriting the unaccepted data
+        // and permanently losing one pair, which desynced in_cnt from the
+        // real transfer count and hung the whole operation one slice short.
+        // Holding data constant and re-checking (s_valid && s_ready) at
+        // every edge until the transfer actually lands fixes this.
         for (int d = 0; d < DEPTH; d++) begin
             for (int row = 0; row < SIZE; row++) begin
-                wait (s_ready == 1'b1);
-                s_q_data = {1'b0, real_to_bf16(q_mat[row][d])};
-                s_k_data = {1'b0, real_to_bf16(k_mat[row][d])};
-                s_valid = 1'b1;
-                @(posedge clk_i);
+                s_q_data <= {1'b0, real_to_bf16(q_mat[row][d])};
+                s_k_data <= {1'b0, real_to_bf16(k_mat[row][d])};
+                s_valid  <= 1'b1;
+                do begin
+                    @(posedge clk_i);
+                end while (!(s_valid && s_ready));
             end
         end
-        s_valid = 1'b0;
+        s_valid <= 1'b0;
 
         wait (got_cnt >= SIZE*SIZE);
         @(posedge clk_i);
