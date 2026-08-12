@@ -98,10 +98,20 @@ module qk_array #(
     assign start_allowed = !busy_o;
 
     // ready_o is forced low while the FSM pauses the interface.
+    //
+    // While idle (no operation started yet) ready_o must reflect
+    // start_allowed, not operation_active -- the very first pair of a new
+    // operation is accepted unconditionally via start_i/start_allowed
+    // (see below), without ever needing ready_o to have been high first.
+    // Wrappers such as mod_a_wrapper track "was this pair accepted" purely
+    // from valid && ready_o, so if ready_o stayed low through that first
+    // acceptance, their own bookkeeping (e.g. an input element counter)
+    // desyncs from qk_array's real state starting on pair 2, and the whole
+    // transfer permanently stalls. Reported/fixed after tb_qk_array.sv hung.
     assign ready_o = enable_i &&
-                     operation_active &&
-                     !buffer_full &&
-                     !final_slice_dispatched;
+                     (operation_active
+                        ? (!buffer_full && !final_slice_dispatched)
+                        : start_allowed);
 
     // The first serial pair may be supplied together with start_i.
     assign serial_accept = enable_i && valid_i &&
