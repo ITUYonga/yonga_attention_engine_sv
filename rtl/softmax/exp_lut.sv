@@ -1,5 +1,39 @@
 `timescale 1ns / 1ps
 
+// FUNC_EXP_LUT : Looks up e to the power of x for one bf16 value
+//
+//   Purpose:  softmax needs an exponential of every scaled score, this
+//             does it with a small ROM instead of an iterative
+//             approximation, trading a little accuracy for a pipeline
+//             that never stalls waiting on convergence. Zero is handled
+//             specially (result exactly 1.0), and values far enough
+//             negative or positive saturate to 0 or infinity instead of
+//             indexing into the table, since the table only really
+//             covers the useful middle range.
+//
+//   parameters:
+//           HEX_FILE_PATH:   path to the hex file $readmemh loads the
+//                            256 entry lookup table from
+//
+//   inputs:
+//           clk:      clock
+//           x_in:     one bf16 value, the exponent's argument
+//   output:
+//           y_out:    e to the power of x_in in bf16, purely combinational
+//
+//   notes:
+//           the lookup itself only ever uses the low 8 bits of x_in
+//           (exponent's low bit plus the full mantissa), the sign and
+//           high exponent bits are only used for the special case checks
+//
+//           this must stay purely combinational, softmax.sv feeds
+//           stage1_valid and this module's output into bf16_add's
+//           valid_i/a_in on the same cycle as if both described the same
+//           element. A registered y_out here was tried once and made the
+//           exponential lag its own input by a cycle, so every
+//           accumulate silently summed the previous element's value
+//           instead of its own
+
 module exp_lut #(
     parameter string HEX_FILE_PATH = "rtl/softmax/exp_table.hex"
 )(

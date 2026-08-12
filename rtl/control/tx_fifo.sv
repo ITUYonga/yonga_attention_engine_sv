@@ -1,3 +1,38 @@
+// FUNC_TX_FIFO : Small output FIFO between the output projection and the
+// external AXI-Stream master
+//
+//   Purpose:  Lets the output projection push finished elements out as
+//             soon as they are ready without waiting for the outside
+//             world to actually accept them, since the external AXI
+//             master's readiness has nothing to do with the chip's own
+//             clock timing. wr_data is stored together with its own
+//             if_last flag in the same memory word, so the real end of
+//             vector marker survives sitting in the queue and comes back
+//             out attached to the right element later.
+//
+//   parameters:
+//           DATA_WIDTH:   bit width of one stored element, not counting
+//                         the extra if_last bit
+//           ADDR_WIDTH:   FIFO depth is 2 to the power of ADDR_WIDTH
+//
+//   inputs:
+//           clk, rst_n:   clock and active low reset
+//           wr_data:      one element to push in
+//           wr_en:        wr_data is valid this cycle, push it
+//           if_last:      this element is the real last element of its
+//                         vector, stored alongside wr_data
+//           rd_en:        pop one element this cycle
+//   output:
+//           full:         no room left to push another element
+//           rd_data:      the element at the front of the queue, one bit
+//                         wider than DATA_WIDTH, top bit is the stored
+//                         if_last flag
+//           empty:        nothing left to pop
+//
+//   notes:
+//           a plain circular buffer with one extra pointer bit used only
+//           to tell empty and full apart, no other backpressure logic
+
 module tx_fifo #(
     parameter DATA_WIDTH = 16, 
     parameter ADDR_WIDTH = 4 )(

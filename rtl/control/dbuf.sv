@@ -1,3 +1,47 @@
+// FUNC_DBUF : Ping-pong input token buffer
+//
+//   Purpose:  Holds one full incoming packet (a whole token sequence) in
+//             one of two memory banks (mem_ping/mem_pong) while the
+//             downstream streamer reads the previous packet out of the
+//             other bank, so a new packet can start loading the instant
+//             the old one finishes without waiting for the read side to
+//             catch up. write_to_pong tracks which bank is currently
+//             being written, the read side always looks at the other
+//             one. swap_buffers, driven by the write side finishing a
+//             packet, flips which bank is which for next time.
+//
+//   parameters:
+//           DATA_WIDTH:   bit width of one bf16 element, should stay 16
+//           ADDR_WIDTH:   address width of each bank, bank depth is
+//                         2 to the power of ADDR_WIDTH
+//
+//   inputs:
+//           clk:            clock
+//           rst_n:          active low reset
+//           rx_data:        one element to write in
+//           rx_we:          rx_data is valid this cycle, write it
+//           read_addr:      address the read side wants to read this
+//                           cycle
+//           swap_buffers:   this cycle's rx_data is the last element of
+//                           the current packet, flip banks for the next
+//                           packet after writing it
+//   output:
+//           rx_full:        write side has run out of room in the
+//                           current bank
+//           read_data:      element at read_addr from the bank that is
+//                           not currently being written, one cycle later
+//
+//   notes:
+//           found and fixed a real bug here, swap_buffers and rx_we are
+//           both true on the exact same cycle for a packet's very last
+//           element, since swap_buffers is derived from rx_we together
+//           with the last flag. The write and the bank/address
+//           bookkeeping used to be an if/else against each other, so the
+//           swap branch always won and that last element's data was
+//           never actually written anywhere, permanently undefined in
+//           memory. The two are independent now, both happen on the same
+//           cycle
+
 module dbuf #(
     parameter DATA_WIDTH = 16, // bf16 
     parameter ADDR_WIDTH = 10  // 1024 (degisebilir)

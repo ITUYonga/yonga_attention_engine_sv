@@ -1,24 +1,43 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 18.07.2026 16:38:03
-// Design Name: 
-// Module Name: bf16_mul
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
 
+// FUNC_BF16_MUL : Multiplies two bf16 numbers through a 2 stage pipeline
+//
+//   Purpose:  Computes a_in times b_in in bfloat16 (sign, 8 bit exponent,
+//             7 bit mantissa). Signs are xored, exponents are added and
+//             re biased, mantissas are multiplied, and the product is
+//             renormalized by one bit if the multiply carried into the
+//             top of the mantissa. Exponent overflow saturates to
+//             infinity. Every value on the bus is 17 bits wide, bit 16 is
+//             a source tag that rides through the pipeline unchanged and
+//             plays no part in the arithmetic, it only lets whoever reads
+//             result_mul_o tell which side of a shared resource produced
+//             the value.
+//
+//   parameters:
+//           none
+//
+//   inputs:
+//           clk_i:          clock
+//           rst_ni:         active low reset
+//           valid_i:        a_in and b_in are valid this cycle, starts a
+//                           new multiply
+//           a_in:           first operand, bit 16 is the source tag, bits
+//                           15 down to 0 are the bf16 value
+//           b_in:           second operand, same layout as a_in
+//   output:
+//           result_mul_o:   a_in times b_in, same 17 bit layout, valid
+//                           two cycles after valid_i
+//           valid_o:        result_mul_o is valid this cycle
+//
+//   notes:
+//           the tag carried into the result always comes from a_in's tag
+//           bit, b_in's tag bit is never read, so every caller is
+//           expected to place matching tags on both operands
+//
+//           this is a fixed two cycle pipeline with no backpressure of
+//           its own, once valid_i pulses a result is guaranteed exactly
+//           two cycles later whether or not anything downstream is ready
+//           to accept it
 
 module bf16_mul(
     input logic clk_i,

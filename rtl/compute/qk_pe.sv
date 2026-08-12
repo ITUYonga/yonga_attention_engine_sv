@@ -1,5 +1,51 @@
 `timescale 1ns / 1ps
 
+// FUNC_QK_PE : One multiply accumulate cell of the shared systolic array
+//
+//   Purpose:  Computes one running dot product term, pe_sum_out plus
+//             equals q_in times k_in, every time a fresh q_in and k_in
+//             pair arrives. Internally this is a tiny state machine
+//             (IDLE, MUL, ADD) that issues one bf16_mul then feeds its
+//             result into one bf16_add together with the running sum,
+//             since neither of those units is 0 cycle anymore. start_i
+//             clears the running sum for a new matrix operation, done_o
+//             pulses once the accumulation that included a last flagged
+//             pair has finished.
+//
+//   parameters:
+//           none
+//
+//   inputs:
+//           clk_i:        clock
+//           rst_ni:       active low reset
+//           start_i:      begin a new accumulation, clears pe_sum_out,
+//                         may arrive on the same cycle as the first
+//                         valid q_in/k_in pair
+//           q_in:         one Q element, bit 16 is the source tag, bits
+//                         15 down to 0 are the bf16 value
+//           k_in:         one K element, same layout as q_in
+//           q_valid_i:    q_in is valid this cycle
+//           k_valid_i:    k_in is valid this cycle
+//           q_last_i:     this q_in is the last term of the dot product
+//           k_last_i:     this k_in is the last term of the dot product
+//   output:
+//           q_out, k_out, q_valid_o, k_valid_o, q_last_o, k_last_o:
+//                         one cycle delayed forwarding of the inputs,
+//                         kept for interface compatibility with the
+//                         original design, the serial buffered qk_array
+//                         does not use these
+//           ready_o:      high while idle, able to accept a new pair
+//           pe_sum_out:   the running dot product sum so far, 16 bit bf16
+//           done_o:       pulses one cycle after a pair flagged as the
+//                         last term finished accumulating
+//
+//   notes:
+//           q_valid_i and k_valid_i are expected to always agree, an
+//           assertion (simulation only) checks that q_in and k_in carry
+//           the same source tag bit whenever a multiply is issued, since
+//           mixing tags across the two operands would mean the array is
+//           being fed two unrelated data streams at once
+
 module qk_pe (
     input  logic        clk_i,
     input  logic        rst_ni,

@@ -1,5 +1,36 @@
-//Module Definiton, 
-//Declaration of parameters and ports
+// FUNC_ROW_FIFO : Holds one row's worth of exponentials between softmax's
+// ACCUMULATE and DIVIDE_NORMALIZE passes
+//
+//   Purpose:  softmax needs every element's own e to the power of scaled
+//             score value twice, once to add into the row's running sum,
+//             and again later, after the reciprocal of that sum is
+//             known, to multiply by. This little FIFO is exactly that
+//             second copy, values go in during ACCUMULATE as each
+//             element's exponential is computed and go back out again,
+//             in the same order, during DIVIDE_NORMALIZE.
+//
+//   parameters:
+//           DATA_WIDTH:   bit width of one stored element
+//           ADDR_WIDTH:   FIFO depth is 2 to the power of ADDR_WIDTH,
+//                         needs to cover the longest row softmax will
+//                         ever see
+//
+//   inputs:
+//           clk, rst_n:   clock and active low reset
+//           wr_data:      one exponential value to push in
+//           wr_en:        wr_data is valid this cycle, push it
+//           rd_en:        pop one element this cycle
+//   output:
+//           full:         no room left to push another element
+//           rd_data:      the element at the front of the queue,
+//                         combinational, always reflects whatever rd_ptr
+//                         currently points at
+//           empty:        nothing left to pop
+//
+//   notes:
+//           a plain circular buffer, write and read can happen on the
+//           same cycle since they use independent pointers into the same
+//           memory array
 
 module row_fifo #(
     parameter DATA_WIDTH = 16,

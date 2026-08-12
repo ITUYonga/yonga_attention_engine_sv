@@ -1,6 +1,81 @@
-// butun benim modullerimi tek kutuda toplayan wrapper
-// taha bunu top'a ekleyecek icini bilmesine gerek yok
-// Can  07.08.2026
+// FUNC_PROJECTION_BLOCK : Wraps qkv_proj, rope, and gqa_mapper into one
+// hardwired top level unit with 5 fixed outputs
+//
+//   Purpose:  Bundles four qkv_proj instances (Wq, Wk, Wv, Wo), two rope
+//             instances (Q and K paths), and one gqa_mapper into a single
+//             block with a small, fixed set of external ports, so
+//             whoever wires this into the top level chip does not need
+//             to know anything about how many internal modules there are
+//             or how they connect to each other. Every output goes to
+//             exactly one destination, decided purely by wiring, there is
+//             no routing or tag based decision anywhere in this module:
+//             q_data_o always goes to the shared systolic array, k_data_o
+//             and v_data_o always go to the KV cache, kv_head_idx_o
+//             always goes to the KV cache's read address, and out_data_o
+//             always goes to the AXI-Stream output path.
+//
+//   parameters:
+//           DATA_WIDTH:               bit width of one bf16 element
+//           D_MODEL:                  length of the input token vector
+//           D_OUT_Q:                  length of the Q output vector
+//           D_OUT_KV:                 length of the K and V output
+//                                     vectors, can be smaller than
+//                                     D_OUT_Q under grouped query
+//                                     attention
+//           MAX_POS:                  largest token position RoPE's ROM
+//                                     supports
+//           NUM_Q_HEADS, NUM_KV_HEADS: passed straight through to
+//                                     gqa_mapper
+//
+//   inputs:
+//           clk_i, rst_ni:         clock and active low reset
+//           wq_data_i/wq_addr_i/wq_we_i, wk_..., wv_..., wo_...:
+//                                  weight load ports, one independent set
+//                                  per projection instance
+//           token_data_i/token_valid_i/token_last_i:
+//                                  the raw token vector from dbuf, feeds
+//                                  Wq, Wk, and Wv all at once
+//           pos_i:                 token position, forwarded to both
+//                                  RoPE instances
+//           q_ready_i, k_ready_i, v_ready_i:
+//                                  backpressure from each output's
+//                                  destination
+//           q_head_idx_i:          current query head index, forwarded
+//                                  to gqa_mapper
+//           attn_data_i/attn_valid_i/attn_last_i:
+//                                  the attention output vector coming
+//                                  back from the shared array, feeds Wo
+//           out_ready_i:           backpressure from the AXI-Stream
+//                                  output path
+//   output:
+//           token_ready_o:         AND of Wq, Wk, and Wv's own
+//                                  x_ready_o, so a new token is only
+//                                  accepted once all three are actually
+//                                  ready to receive it
+//           q_data_o/q_valid_o/q_last_o:
+//                                  rotated Q vector, to the shared array
+//           k_data_o/k_valid_o/k_last_o:
+//                                  rotated K vector, to the KV cache
+//           v_data_o/v_valid_o/v_last_o:
+//                                  V vector, unrotated, to the KV cache
+//           kv_head_idx_o:         which KV head the current Q head
+//                                  should read from
+//           attn_ready_o:          backpressure back to whatever feeds
+//                                  attn_data_i
+//           out_data_o/out_valid_o/out_last_o:
+//                                  final projected output vector
+//
+//   notes:
+//           found and fixed a real bug here, token_ready_o used to be
+//           wired only to the Wq instance's own x_ready_o, leaving Wk and
+//           Wv's readiness unused. Since all three share the same
+//           token_valid_i/token_data_i, if either one ever fell out of
+//           lockstep with Wq (staying busy computing or draining while
+//           Wq had already returned to loading), a new token could be
+//           accepted based on Wq alone while Wk or Wv silently missed it
+//           entirely, since each instance only listens to its input
+//           while its own state machine is actually in the loading
+//           state. token_ready_o is now the AND of all three
 
 module projection_block #(
     parameter DATA_WIDTH  = 16,

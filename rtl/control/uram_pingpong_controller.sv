@@ -1,5 +1,63 @@
 `timescale 1ns / 1ps
 
+// FUNC_URAM_PINGPONG_CONTROLLER : Drives the write and read addressing
+// for the Q, K, and V URAM banks, one bank pair per matrix
+//
+//   Purpose:  Writing side just follows Modül B's own streaming output,
+//             counting up through MATRIX_SIZE elements and flipping to
+//             the other ping-pong bank once a whole matrix has landed, so
+//             a new matrix can start writing while the array is still
+//             reading the previous one out of the other bank. Reading
+//             side is the more involved half, it walks the stored,
+//             token-major Q/K data back out in the depth-major order
+//             qk_array actually wants (see its own header), one full
+//             sweep of every row at each depth index before moving to the
+//             next depth index, then once softmax produces its first
+//             result it switches to reading V out straight through in
+//             plain order for the score times V pass.
+//
+//   parameters:
+//           ADDR_WIDTH:    address width of each URAM bank
+//           MATRIX_SIZE:   total elements in one full Q/K/V matrix
+//           D_MODEL:       elements per token/row, used to reshape the
+//                          flat MATRIX_SIZE buffer into depth-major order
+//
+//   inputs:
+//           clk, rst_n:     clock and active low reset
+//           write_valid:    one element (shared across Q, K, V) is valid
+//                           this cycle
+//           write_last:     unused, see notes
+//           softmax_valid:  softmax has produced its first result,
+//                           switch from the Q/K sweep to reading V
+//           qk_data_valid:  this cycle's Q and K URAM reads are both
+//                           valid
+//           qk_ready:       the array actually accepted this cycle's Q/K
+//                           pair
+//   output:
+//           waddr:          write address shared by the Q, K, and V
+//                           banks, top bit selects the ping-pong bank
+//           q_ren, k_ren, v_ren:
+//                           read enable for each bank
+//           q_raddr, k_raddr, v_raddr:
+//                           read address for each bank
+//
+//   notes:
+//           write_last is not used for deciding when a matrix is
+//           complete, only wr_ptr reaching MATRIX_SIZE-1 is, since
+//           write_last used to pulse once per token instead of once per
+//           whole matrix and closed out a package far too early
+//
+//           found and fixed a real bug in the read side's last address:
+//           the state machine used to leave ST_READ_QK the instant it
+//           issued its final address, before anything confirmed that
+//           address's result had actually been accepted downstream.
+//           Every earlier address relied on the next address's own hold
+//           check to confirm it landed, the last address had no next one
+//           to confirm it. final_addr_issued now pins the last address in
+//           place and keeps re-issuing it, exactly like the normal hold
+//           path does for every other address, until qk_data_valid and
+//           qk_ready confirm it was actually consumed
+
 module uram_pingpong_controller #(
     parameter ADDR_WIDTH = 10,
     parameter MATRIX_SIZE = 1024,

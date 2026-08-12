@@ -1,10 +1,50 @@
 `timescale 1ns / 1ps
 
-//modified with claude
-//added 3rd pipeline stage
+// FUNC_SCALE_MASK : Scales each raw score by 1 over square root of d_k
+// and applies causal masking before softmax sees it
 //
+//   Purpose:  A 3 stage pipeline that multiplies every incoming score by
+//             scale_factor through bf16_mul, then either passes the
+//             scaled value through unchanged or replaces it with
+//             negative infinity if en_scale_mask marks this element as
+//             masked, so softmax's own exponential naturally rounds a
+//             masked position down to zero without softmax needing to
+//             know anything about masking itself. Only one element is
+//             ever in flight through the pipeline at a time.
+//
+//   parameters:
+//           DATA_WIDTH:   bit width of one bf16 element, should stay 16
+//
+//   inputs:
+//           clk, rst_n:      clock and active low reset
+//           s_axis_tdata:    one raw score
+//           s_axis_tvalid:   s_axis_tdata is valid this cycle
+//           s_axis_tlast:    this score is the last of its row
+//           scale_factor:    1 over square root of d_k, in bf16
+//           en_scale_mask:   this element should be masked to negative
+//                            infinity instead of scaled through normally
+//           m_axis_tready:   softmax can accept a result this cycle
+//           ext_stall:       freeze the whole pipeline this cycle,
+//                            neither accepting new input nor advancing
+//   output:
+//           s_axis_tready:   this module can accept one score this cycle
+//           m_axis_tdata:    the scaled, or masked, result
+//           m_axis_tvalid:   m_axis_tdata is valid this cycle
+//           m_axis_tlast:    this result is the last of its row
+//
+//   notes:
+//           found and fixed a real bug here already, the admission
+//           condition used to let a second element enter the pipeline
+//           just because the final stage register was still empty, even
+//           though it was empty only because the first element had not
+//           arrived there yet. bf16_mul is a fixed latency pipeline with
+//           no stall of its own, so if m_axis_tready then stalled for a
+//           couple of cycles, two multiply results could land back to
+//           back and the single, non FIFO final register could only keep
+//           one, silently dropping a row element. Gating admission on
+//           pipe_busy, one element in flight at a time, fixed it at the
+//           cost of some throughput
 
-//1) module header & port definitions
 module scale_mask #(
     parameter DATA_WIDTH = 16
   //parameter DATA_WIDTH_f32 = 32

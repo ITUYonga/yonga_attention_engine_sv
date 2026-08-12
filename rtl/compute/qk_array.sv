@@ -1,23 +1,61 @@
 `timescale 1ns / 1ps
 
-// Serial-input, output-stationary QK^T array.
+// FUNC_QK_ARRAY : Shared SIZE by SIZE systolic array, output stationary
 //
-// For each depth index d, send SIZE Q/K pairs in this order:
-//   pair 0: q_in = Q[0][d], k_in = K[0][d]
-//   pair 1: q_in = Q[1][d], k_in = K[1][d]
-//   ...
-//   pair SIZE-1: q_in = Q[SIZE-1][d], k_in = K[SIZE-1][d]
+//   Purpose:  Computes a full SIZE by SIZE matrix of dot products, used
+//             for both the Q times K transpose pass and, reusing the
+//             same physical PE grid a second time, the score times V
+//             pass. Q and K elements for one depth index arrive serially,
+//             one pair per cycle, in row order (row 0's pair, row 1's
+//             pair, and so on). Once all SIZE pairs for that depth index
+//             have been buffered, every PE in the grid consumes its own
+//             (row, column) pair from that slice in parallel, each
+//             accumulating sum_out[row][col] plus equals Q[row][d] times
+//             K[col][d]. Repeating this for every depth index produces
+//             the complete matrix.
 //
-// After SIZE accepted pairs, all SIZE*SIZE PEs process the buffered depth
-// slice in parallel:
-//   sum_out[row][col] += Q[row][d] * K[col][d]
+//   parameters:
+//           SIZE:      the array is SIZE by SIZE PEs, also how many
+//                      serial pairs make up one depth slice
 //
-// enable_i behavior:
-//   enable_i = 1: serial input and new PE dispatch are allowed.
-//   enable_i = 0: no new input is accepted and no new slice is dispatched.
-//                 An arithmetic operation already inside a PE is allowed to
-//                 finish. Its valid/done event is saved and presented when
-//                 enable_i returns to 1, so the FSM cannot miss completion.
+//   inputs:
+//           clk_i:     clock
+//           rst_ni:    active low reset
+//           enable_i:  1 lets serial input and new slice dispatch happen,
+//                      0 pauses the interface, an arithmetic operation
+//                      already inside a PE still finishes and its
+//                      valid/done event is saved and presented once
+//                      enable_i returns to 1, so nothing is missed
+//           start_i:   begin a new matrix operation, may arrive together
+//                      with the first pair of the first depth slice
+//           valid_i:   q_in and k_in are valid this cycle
+//           last_i:    this pair is the last one of the last depth slice
+//           q_in:      one Q element, bit 16 is the source tag, bits 15
+//                      down to 0 are the bf16 value
+//           k_in:      one K element, same layout as q_in
+//   output:
+//           sum_out:   the complete SIZE by SIZE result matrix, bit 16 of
+//                      every entry carries the operation's tag, latched
+//                      from whichever tag started the operation
+//           ready_o:   high when the array can accept one more serial
+//                      q_in/k_in pair this cycle
+//           valid_o:   pulses once for every depth slice that finishes
+//           done_o:    pulses once the final depth slice finishes
+//           busy_o:    high from an accepted start_i until the final
+//                      done event has been delivered
+//
+//   notes:
+//           each PE is its own qk_pe instance, q_buffer and k_buffer hold
+//           the current depth slice's SIZE pairs while they are being
+//           loaded serially, then feed all PEs at once on dispatch
+//
+//           found and fixed after a real hang, ready_o used to reflect
+//           operation_active instead of start_allowed while idle, which
+//           left a one cycle window where a wrapper's own bookkeeping
+//           (built purely from valid and ready_o) could desync from the
+//           array's real state and stall permanently, see the git history
+//           for tb_qk_array.sv
+
 module qk_array #(
     parameter int SIZE = 4
 )(

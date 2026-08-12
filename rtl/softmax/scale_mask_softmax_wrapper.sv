@@ -1,5 +1,41 @@
 `timescale 1ns / 1ps
 
+// FUNC_SCALE_MASK_SOFTMAX_WRAPPER : Chains scale_mask straight into
+// softmax behind one shared AXI-Stream interface
+//
+//   Purpose:  scale_mask and softmax are two separate pipelines that
+//             always run back to back, this module just wires
+//             scale_mask's output directly into softmax's input and
+//             exposes only the outer, whole chain interface, so the rest
+//             of the chip (top.sv) can treat scale plus mask plus
+//             softmax as one block instead of two.
+//
+//   parameters:
+//           DATA_WIDTH:    bit width of one bf16 element, should stay 16
+//           MAX_ROW_LEN:   longest row softmax's internal FIFO and
+//                          counters need to support, forwarded straight
+//                          to softmax
+//
+//   inputs:
+//           clk, rst_n:      clock and active low reset
+//           scale_factor:    forwarded to scale_mask
+//           en_scale_mask:   forwarded to scale_mask
+//           ext_stall:       forwarded to scale_mask
+//           s_axis_tdata/tvalid/tlast:
+//                            raw scores in, scale_mask's own slave side
+//           m_axis_tready:   backpressure from whatever reads softmax's
+//                            normalized output
+//   output:
+//           s_axis_tready:   backpressure back to whatever feeds raw
+//                            scores in
+//           m_axis_tdata/tvalid/tlast:
+//                            normalized attention weights out, softmax's
+//                            own master side
+//
+//   notes:
+//           the wires between scale_mask and softmax are entirely
+//           internal, nothing outside this module ever sees them
+
 module scale_mask_softmax_wrapper #(
     parameter int DATA_WIDTH  = 16,
     parameter int MAX_ROW_LEN = 1024

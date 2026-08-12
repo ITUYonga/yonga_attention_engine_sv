@@ -1,5 +1,66 @@
 `timescale 1ns / 1ps
 
+// FUNC_ATTENTION_ENGINE_TOP : Wires every module in the design into one
+// chip, from the fp32 AXI-Stream boundary to the fp32 AXI-Stream boundary
+//
+//   Purpose:  Instantiates and connects the whole pipeline in order.
+//             axi_stream_if and dbuf take a token sequence in off the
+//             external AXI bus. projection_block turns each token into
+//             rotated Q, rotated K, and plain V, feeding Q straight to
+//             the shared systolic array and K/V into the ping pong URAM
+//             banks by way of uram_pingpong_controller. Once a whole
+//             matrix's worth of Q and K is stored, mod_a_input_arbiter
+//             feeds it into mod_a_wrapper (wrapping qk_array) depth slice
+//             by depth slice for the Q times K transpose pass,
+//             mod_a_output_router sends the result on to
+//             scale_mask_softmax_wrapper, and softmax's normalized
+//             weights come back around through the same arbiter, paired
+//             with a V read, for the array's second, score times V pass.
+//             That result goes back into projection_block's Wo instance,
+//             and the finished output vector leaves through tx_fifo and
+//             axi_stream_if. Every module boundary uses the same
+//             valid/ready handshake, and the 1 bit source tag riding
+//             alongside every 17 bit value is how the arbiter and routers
+//             tell the two passes through the shared array apart.
+//
+//   parameters:
+//           DATA_WIDTH_f32:    bit width of the external AXI data bus
+//           DATA_WIDTH_bf16:   bit width of one internal bf16 element
+//           DBUF_ADDR_WIDTH:   address width of dbuf's own banks
+//           D_MODEL:           length of one token vector
+//           MATRIX_SIZE:       total elements in one full Q/K/V matrix,
+//                              passed to the URAM controller
+//           MAX_POS:           largest token position RoPE's ROM
+//                              supports
+//
+//   inputs:
+//           clk, rst_n:         clock and active low reset
+//           select_bf16:        forwarded to axi_stream_if's fp32 to
+//                               bf16 conversion select
+//           s_axis_tdata/tvalid/tlast:
+//                               external AXI-Stream slave side, the
+//                               token sequence coming in
+//           m_axis_tready:      external AXI-Stream master side, whether
+//                               the outside world can accept output
+//           w_data_i/w_addr_i:  shared weight value/address bus for
+//                               loading all four projection weight
+//                               matrices
+//           w_we_q, w_we_k, w_we_v, w_we_o:
+//                               which weight matrix w_data_i/w_addr_i
+//                               is currently targeting
+//   output:
+//           s_axis_tready:      external AXI-Stream slave side ready
+//           m_axis_tdata/tvalid/tlast:
+//                               external AXI-Stream master side, the
+//                               finished output vector going out
+//
+//   notes:
+//           this is the level every module level testbench stops short
+//           of, DEBUG_NOTES.md documents a first full simulation of this
+//           exact assembled pipeline finding and fixing four further
+//           integration bugs that no single module's own testbench could
+//           reach
+
 module attention_engine_top #(
     parameter DATA_WIDTH_f32  = 32,
     parameter DATA_WIDTH_bf16 = 16,

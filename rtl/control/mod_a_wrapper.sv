@@ -1,5 +1,55 @@
 `timescale 1ns / 1ps
 
+// FUNC_MOD_A_WRAPPER : Turns qk_array's serial in, parallel out interface
+// into a plain valid/ready stream on both sides
+//
+//   Purpose:  qk_array itself wants DEPTH serial pairs per row times SIZE
+//             rows in on one side, and hands back a whole SIZE by SIZE
+//             matrix at once on the other. This wrapper hides both of
+//             those shapes behind an ordinary one element per cycle
+//             valid/ready stream. On the input side, an internal counter
+//             watches how many pairs have been accepted and generates
+//             qk_array's own start_i and last_i automatically, so the
+//             caller just streams SIZE times DEPTH pairs and does not
+//             have to track array internals. On the output side, once
+//             done_o fires the whole result matrix is latched into
+//             out_buffer and then drained out one element at a time in
+//             row major order.
+//
+//   parameters:
+//           SIZE:    matches qk_array's own SIZE, the array is SIZE by
+//                    SIZE PEs
+//           DEPTH:   how many serial pairs make up one row, normally
+//                    D_MODEL
+//
+//   inputs:
+//           clk_i, rst_ni:   clock and active low reset
+//           s_valid:         s_q_data/s_k_data are valid this cycle
+//           s_q_data:        one Q element, 17 bit tagged
+//           s_k_data:        one K element, 17 bit tagged
+//           m_ready:         downstream can accept an output element
+//                            this cycle
+//   output:
+//           s_ready:         this module can accept one serial pair this
+//                            cycle
+//           m_valid:         m_data is valid this cycle
+//           m_data:          one element of the drained result matrix
+//           m_last:          this element is the last one being drained
+//
+//   notes:
+//           enable_i is held low while draining (drain_active) so the
+//           array cannot start a new matrix operation until the previous
+//           result has been fully read out
+//
+//           m_last currently only pulses on the very last element of the
+//           whole matrix, not once per row. A per row version was tried
+//           (asserting m_last whenever col_cnt wraps) so downstream
+//           softmax could normalize each row on its own instead of
+//           treating the whole matrix as one giant row, but that change
+//           introduced a second, not yet diagnosed deadlock between
+//           softmax and this drain logic and was reverted, see
+//           DEBUG_NOTES.md
+
 module mod_a_wrapper #(
     parameter int SIZE = 4,
     parameter int DEPTH = 64 // Matrisin iç çarpım derinliği (D_MODEL)

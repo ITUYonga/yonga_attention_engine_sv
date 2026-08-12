@@ -1,8 +1,70 @@
 `timescale 1ns / 1ps
 
+// FUNC_SOFTMAX : Normalizes one row of scaled scores into attention
+// weights that sum to 1
 //
-//1) module header & port definitions
+//   Purpose:  A four state machine that makes two passes over a row.
+//             IDLE waits for the first element. ACCUMULATE streams every
+//             element through exp_lut and keeps a running sum, also
+//             pushing each element's own exponential into row_fifo for
+//             later, until the element flagged as the row's last one has
+//             finished its add. INVERT spends one cycle turning that sum
+//             into a reciprocal through recip_lut. DIVIDE_NORMALIZE pops
+//             row_fifo back out in the same order and multiplies each
+//             value by the reciprocal, producing the final normalized
+//             weights, before returning to IDLE for the next row. This
+//             two pass, one element at a time design trades throughput
+//             for numerical accuracy, no parallel reduction tree is
+//             needed and nothing has to wait on convergence.
 //
+//   parameters:
+//           DATA_WIDTH:    bit width of one bf16 element, should stay 16
+//           MAX_ROW_LEN:   longest row this instance needs to support,
+//                          sizes row_fifo and the element counter
+//
+//   inputs:
+//           clk, rst_n:      clock and active low reset
+//           s_axis_tdata:    one scaled score
+//           s_axis_tvalid:   s_axis_tdata is valid this cycle
+//           s_axis_tlast:    this score is the last of its row
+//           m_axis_tready:   downstream can accept a normalized weight
+//                            this cycle
+//   output:
+//           s_axis_tready:   this module can accept one score this
+//                            cycle, only true during IDLE or ACCUMULATE,
+//                            and only while row_fifo has room and the
+//                            adder is not mid operation
+//           m_axis_tdata:    one normalized attention weight
+//           m_axis_tvalid:   m_axis_tdata is valid this cycle
+//           m_axis_tlast:    this weight is the last of its row
+//
+//   notes:
+//           currently treats one entire top level test matrix as a
+//           single row rather than one row per query, because whatever
+//           feeds s_axis_tlast today only marks the very last element of
+//           the whole matrix, see mod_a_wrapper.sv's own notes and
+//           DEBUG_NOTES.md for why a per row version was tried and
+//           reverted
+//
+//           found and fixed several real bugs in getting this far.
+//           add_busy used to be set one cycle late (derived from an
+//           already registered signal instead of the raw accept
+//           condition), letting a second element sneak in before the
+//           adder was marked busy. element_count used to decrement on
+//           mul_valid_o, one cycle before that value actually reached
+//           m_axis_tvalid, which shifted m_axis_tlast onto the
+//           second to last output instead of the true last one and
+//           dropped the real final element. DIVIDE_NORMALIZE used to
+//           exit back to IDLE as soon as row_fifo went empty, even though
+//           the last couple of reads were still draining through
+//           norm_multiplier's own pipeline, dropping them too. And
+//           norm_multiplier itself was missing the one element in flight
+//           guard already used in scale_mask.sv, so two mul_valid_o
+//           results landing on adjacent cycles could overwrite each
+//           other in the single, non FIFO m_axis_tvalid register,
+//           norm_pipe_busy fixes that the same way scale_mask.sv's
+//           pipe_busy does
+
 module softmax #(
     parameter int DATA_WIDTH = 16,
     parameter int MAX_ROW_LEN = 1024

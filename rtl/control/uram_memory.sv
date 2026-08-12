@@ -1,5 +1,47 @@
 `timescale 1ns / 1ps
 
+// FUNC_URAM_MEMORY : One synchronous read/write memory bank, mapped to
+// UltraRAM style block memory
+//
+//   Purpose:  A plain single bank memory used to hold one of the Q, K, or
+//             V arrays. Write address comes directly from whatever
+//             controller is driving this bank (uram_pingpong_controller
+//             for Q/K/V storage), rather than being generated internally,
+//             so several banks can share one controller's addressing
+//             scheme. Reads are synchronous with one cycle of latency,
+//             matching how real UltraRAM blocks behave, and rvalid tells
+//             the reader exactly which cycle rdata is actually valid.
+//
+//   parameters:
+//           DATA_WIDTH:   bit width of one stored element
+//           ADDR_WIDTH:   address width, memory depth is DEPTH regardless
+//                         of how many address bits this allows
+//           DEPTH:        number of storable elements
+//
+//   inputs:
+//           clk, rst_n:   clock and active low reset
+//           wr_en:        wr_data is valid this cycle, write it to
+//                         wr_addr
+//           wr_addr:      address to write to this cycle
+//           wr_data:      one element to store
+//           rd_en:        read rd_addr this cycle, result appears next
+//                         cycle
+//           rd_addr:      address to read this cycle
+//   output:
+//           ready:        always 1 here, this bank never applies its own
+//                         backpressure, whoever writes to it is expected
+//                         to already know it has room
+//           rdata:        data read from the address rd_addr held one
+//                         cycle ago
+//           rvalid:       rdata is valid this cycle, mirrors last
+//                         cycle's rd_en
+//
+//   notes:
+//           the ram_style ultra attribute is a Vivado synthesis hint,
+//           asking the tool to map the storage array onto UltraRAM
+//           primitives instead of ordinary Block RAM or distributed LUT
+//           RAM
+
 module uram_memory #(
     parameter DATA_WIDTH = 16,
     parameter ADDR_WIDTH = 10,   // 1024 eleman için

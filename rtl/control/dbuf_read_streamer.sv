@@ -1,5 +1,48 @@
 `timescale 1ns / 1ps
 
+// FUNC_DBUF_READ_STREAMER : Reads one whole dbuf packet back out as a
+// single continuous, valid/ready stream, tagging token boundaries
+//
+//   Purpose:  Once dbuf finishes writing a full packet (swap_buffers
+//             pulses), this module reads it straight back out address by
+//             address, one element per cycle, and reshapes the flat
+//             address count into token boundaries by dividing it by
+//             D_MODEL: every D_MODEL'th element gets m_last so the
+//             consumer (projection_block) knows where one token vector
+//             ends and the next begins, without the source ever having
+//             sent a separate tlast per token itself. Reads only run for
+//             one full pass over SEQ_LENGTH elements then stop and wait
+//             for the next swap_buffers.
+//
+//   parameters:
+//           DATA_WIDTH:   bit width of one bf16 element, should stay 16
+//           ADDR_WIDTH:   address width matching dbuf's own bank depth
+//           SEQ_LENGTH:   total elements in one packet, dbuf's whole
+//                         bank depth worth of tokens back to back
+//           D_MODEL:      length of one token vector, used only to
+//                         decide where m_last should pulse
+//
+//   inputs:
+//           clk:            clock
+//           rst_n:          active low reset
+//           swap_buffers:   dbuf just finished writing a packet, start
+//                           reading it out
+//           read_data:      element from dbuf at the address this module
+//                           asked for last cycle, one cycle delayed
+//           m_ready:        downstream can accept an element this cycle
+//   output:
+//           read_addr:      address this module wants dbuf to read next
+//           m_valid:        m_data is valid this cycle
+//           m_data:         one streamed out element
+//           m_last:         this element is the last of its D_MODEL
+//                           sized token, not the last of the whole packet
+//
+//   notes:
+//           pipe_valid/pipe_last exist purely to line up with dbuf's own
+//           one cycle read latency, so m_valid/m_last/m_data all become
+//           true together on the exact cycle read_data actually holds
+//           the element they describe
+
 module dbuf_read_streamer #(
     parameter DATA_WIDTH = 16,
     parameter ADDR_WIDTH = 10,
