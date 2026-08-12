@@ -150,10 +150,11 @@ module attention_engine_top #(
     assign k_proj_r = k_uram_rdy;
     assign v_proj_r = v_uram_rdy;
 
-    uram_pingpong_controller #(.ADDR_WIDTH(DBUF_ADDR_WIDTH), .MATRIX_SIZE(MATRIX_SIZE)) u_uram_ctrl (
+    uram_pingpong_controller #(.ADDR_WIDTH(DBUF_ADDR_WIDTH), .MATRIX_SIZE(MATRIX_SIZE), .D_MODEL(D_MODEL)) u_uram_ctrl (
         .clk(clk), .rst_n(rst_n),
         .write_valid(q_proj_v), .write_last(q_proj_last), .waddr(uram_waddr),
-        .softmax_valid(c_v), 
+        .softmax_valid(c_v),
+        .qk_data_valid(qk_valid), .qk_ready(qk_ready),
         .q_ren(q_uram_ren), .q_raddr(q_uram_raddr),
         .k_ren(k_uram_ren), .k_raddr(k_uram_raddr),
         .v_ren(v_uram_ren), .v_raddr(v_uram_raddr)
