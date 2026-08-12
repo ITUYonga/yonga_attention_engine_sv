@@ -234,6 +234,19 @@ Once the pipeline actually elaborated and simulated, Can Ertürk also built the 
 
 This kind of work does not show up as a new feature or a clever algorithm. It rarely gets its own slide. But a self-attention accelerator that four people wrote in isolation, and that nobody had actually connected end to end, was until this pass four plausible-looking RTL directories rather than a working chip.
 
+### End-to-end simulation: four more bugs, only findable by actually running the chip
+
+Every module above has its own passing standalone testbench. None of those testbenches, individually, could have caught what showed up once `tb/tb_top.sv` (four tokens, `Wq = I`, `Wk = 2I`, so `Q = token` and `K = 2·token` by construction, making the expected Q·Kᵀ result easy to check by hand) was pushed through the full `top.sv` pipeline in Vivado's XSim. First pass: total silence, `c_v` (softmax's final output) never asserted once in the 5 ms simulation window, a straight timeout with 0/16 attention weights produced.
+
+Diagnosing that meant instrumenting the handshake chain stage by stage (`done_o → a_out_v → c_in_v → c_v`) with `$display` tracers and walking the signals cycle by cycle. That surfaced three earlier bugs in `uram_pingpong_controller.sv` (a per-token instead of per-matrix "packet done" counter, a token-major instead of depth-major URAM read order, and a read side with no backpressure at all), which were fixed first and got data flowing as far as Module A. Continuing past that point found four more, independent bugs, all invisible to any single-module testbench because each one only manifests when two modules' timing assumptions actually meet:
+
+1. **`rtl/control/dbuf.sv`** — `swap_buffers` and the write of a packet's *last* element were the two branches of one `if`/`else`, so on the cycle both conditions were true, the swap won and the actual data write (`mem_ping[write_addr] <= rx_data`) silently never happened. Every packet's last element stayed `X` forever, which is what made everything downstream (`uram_pingpong_controller`, `qk_array`, `qkv_proj` outputs) look corrupted. Fixed by making the data write and the swap/address bookkeeping two independent `if` blocks instead of an `if`/`else`.
+2. **`rtl/control/uram_pingpong_controller.sv`** — every read address except the very last one gets its "was this actually accepted" confirmation for free, from the *next* iteration's hold check. The last address has no next iteration, so `ST_READ_QK` advanced to `ST_WAIT_SOFTMAX` without ever confirming Module A had accepted the final Q/K pair. Fixed with a `final_addr_issued` flag that pins and re-issues that last address until `qk_data_valid && qk_ready` actually fires.
+3. **`rtl/control/mod_a_input_arbiter.sv`** — `c_ready` (softmax's `m_axis_tready`) was computed inside the `del_c_valid` branch, itself a one-cycle-delayed copy of `c_valid`. Softmax's very first `c_valid` needs `c_ready` to already be `1`, but `c_ready` could only become `1` *after* softmax had already asserted `c_valid` once — a chicken-and-egg deadlock that left softmax stuck before producing its first output. Fixed with a direct `assign c_ready = mod_a_ready;`.
+4. **`rtl/softmax/softmax.sv`** — the same missing-backpressure-guard bug that `scale_mask.sv` already had fixed elsewhere in the design: `fifo_rd_en` could fire on two consecutive cycles, overlapping two `mul_valid_o` results into a single output register (`m_axis_tvalid`) and silently dropping the first one. Fixed by mirroring `scale_mask.sv`'s `pipe_busy` pattern as a new `norm_pipe_busy` guard.
+
+After all four fixes, the Q·Kᵀ → softmax half of the pipeline runs end to end with **no deadlock and no timeout**: all 16 elements of the 4×4 score matrix produce a `c_v` pulse. What it does *not* yet do is produce numerically correct softmax weights — see [Known Limitations](#known-limitations--whats-next) for the one remaining open bug from this pass. Full write-up, including the attempted-and-reverted fix for that last bug, is in [`DEBUG_NOTES.md`](DEBUG_NOTES.md) (commit `1a9b18c`).
+
 ## Performance Analysis
 
 ### Resource Utilization
@@ -350,6 +363,7 @@ Each module has a standalone, self-checking testbench under `tb/`. No full-syste
 | `tb_rope.sv` | ROM loading, rotate-half pairing, identity rotation at position 0, tolerance check against `$sin`/`$cos` at position 4 | PASS |
 | `tb_qk_array.sv` | Shared systolic array through `mod_a_wrapper`, checked against a hand-computed Q$K^T$, SIZE 2, DEPTH 2 | PASS 4/4 |
 | `tb_scale_mask_softmax.sv` | Full scale, mask, and softmax chain against the real LUT tables, one uniform row and one causally-masked row | PASS 8/8 |
+| `tb_top.sv` | Full `top.sv`, 4 tokens, AXI-Stream in → projection/RoPE → ping-pong URAM → shared array (Q·K$^T$ pass) → scale/softmax, against a bit-exact golden model (`bf16_bitexact_utils.svh`) built from the same RTL LUT/ROM files | Completes, no deadlock/timeout (16/16 `c_v` pulses); values not yet bit-matched, see [Known Limitations](#known-limitations--whats-next) |
 
 <details>
 <summary>Waveforms from each testbench run</summary>
@@ -433,7 +447,8 @@ Honest status, not a marketing list:
 - **`en_scale_mask` is a per-element signal, not a static enable.** It must be driven per data element by real causal-mask logic. Tying it to a constant will mask an entire row.
 - **No weight-loading lock or handshake yet.** Nothing currently prevents a weight write from racing a computation using that same weight.
 - **Score·V tag alignment is a flagged assumption**, not a confirmed team decision. See the comment in `mod_a_input_arbiter.sv`.
-- **No full end-to-end (`top.sv`) simulation yet.** Module-level testbenches pass. System-level integration testing is next, once the items above are resolved.
+- **Softmax normalizes the whole 4×4 score matrix as one 16-element row instead of four independent 4-element rows.** `mod_a_wrapper.sv`'s `m_last` (which tells softmax "this is the last element, start normalizing") only fires once per matrix (`row_cnt==SIZE-1 && col_cnt==SIZE-1`), not once per row. Changing it to fire per row (`col_cnt==SIZE-1`) makes row 0 normalize correctly but then deadlocks on row 1 (scale_mask's single-element `pipe_busy` slot never frees up), so that change was reverted and the root cause of the row-1 deadlock is still open. Net effect right now: the pipeline runs end to end with no timeout, but softmax's output values don't match the golden model row-by-row (row sums come out ~4× too large). Full detail and the reverted diff are in [`DEBUG_NOTES.md`](DEBUG_NOTES.md).
+- **The score·V pass and the output projection (`Wo`) are still untested end to end.** `tb_top.sv` only exercises AXI-Stream in → projection/RoPE → URAM → Q·Kᵀ → scale/softmax. Feeding softmax's weights back into Module A for score·V, and the final `qkv_proj`(Wo)/`tx_fifo` stage, still only have their original module-level testbenches, not a full-chip one.
 - **Timing closure and $f_{\max}$ are not measured yet.** See [Performance Analysis](#performance-analysis) for the resource utilization numbers that are already available.
 
 ## References
