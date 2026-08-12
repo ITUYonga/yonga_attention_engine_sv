@@ -174,11 +174,23 @@ module softmax #(
     //State register updates
       current_state <= next_state;
       //2cc accumulator gate logic
-      if(stage1_valid)begin
+      //
+      // add_busy used to be set from stage1_valid, which is itself already
+      // a registered, one-cycle-delayed copy of "an element was accepted."
+      // That left one full cycle, right after acceptance, where add_busy
+      // was still 0 and s_axis_tready (gated only on !add_busy) stayed
+      // high, letting a second element sneak in before add_busy ever
+      // caught up -- a 4-element row would accumulate 5 additions. Setting
+      // add_busy directly from this cycle's own accept condition closes
+      // that gap immediately instead of one cycle late.
+      if (s_axis_tvalid && s_axis_tready) begin
         add_busy <= 1'b1;                     //adder working, freeze upstream
-        last_d1  <= stage1_last;  // Cycle T+1
       end else if (add_valid_o) begin
         add_busy <= 1'b0;                     // unfreeze when adder result is ready
+      end
+
+      if (stage1_valid) begin
+        last_d1 <= stage1_last;  // Cycle T+1
       end
 
       // Shift second cycle tag along with addition completion
@@ -192,9 +204,20 @@ module softmax #(
       end
 
       // Element Counter Management (Single unified driver)
+      //
+      // Decrementing on mul_valid_o (instead of on the actual m_axis
+      // handshake, m_axis_tvalid && m_axis_tready) counts one cycle too
+      // early: mul_valid_o is the *input* to the m_axis output register,
+      // which only becomes m_axis_tvalid on the following cycle. That skew
+      // made m_axis_tlast (= element_count == 1) assert on the
+      // second-to-last output instead of the true last one, which in turn
+      // made the DIVIDE_NORMALIZE exit condition below fire one output
+      // early, discarding the final row element. Keying the decrement to
+      // the real output handshake keeps element_count aligned with which
+      // output element is actually on the bus this cycle.
       if (add_valid_o) begin
         element_count <= element_count + 1'b1;
-      end else if (current_state == DIVIDE_NORMALIZE && mul_valid_o && m_axis_tready) begin
+      end else if (current_state == DIVIDE_NORMALIZE && m_axis_tvalid && m_axis_tready) begin
         element_count <= element_count - 1'b1;
       end else if (current_state == IDLE) begin
         element_count <= '0;
@@ -237,8 +260,15 @@ always_comb begin
     end
 
     DIVIDE_NORMALIZE: begin
-        // Finish when FIFO is empty and last output token handshakes
-        if (fifo_empty && m_axis_tvalid && m_axis_tready) begin
+        // fifo_empty only means every element has been *read out of the
+        // FIFO*, not that every element has finished draining through
+        // bf16_mul's multi-cycle pipeline and reached m_axis -- the last
+        // couple of reads are still in flight when the FIFO goes empty, so
+        // gating on fifo_empty here used to return to IDLE while real
+        // output elements were still in the pipe, dropping them. m_axis_tlast
+        // (now correctly aligned, see element_count above) already marks the
+        // true final output handshake, so use that instead.
+        if (m_axis_tlast && m_axis_tvalid && m_axis_tready) begin
             next_state = IDLE;
         end
     end
