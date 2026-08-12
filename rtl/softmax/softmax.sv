@@ -71,9 +71,10 @@ module softmax #(
 
   //Flow Contol and FIFO Internal Signals
   logic                      fifo_wr_en, fifo_rd_en;
-  logic                      fifo_empty, fifo_full; 
+  logic                      fifo_empty, fifo_full;
   logic [DATA_WIDTH-1:0]     fifo_dout;
   logic [COUNT_WIDTH-1:0]    element_count;
+  logic                      norm_pipe_busy;  // one element in flight through norm_multiplier at a time
 
 //parallel delay registers for the last flag
   logic last_d1, last_d2;
@@ -123,7 +124,20 @@ module softmax #(
 
 //E) row fifp buffer
   assign fifo_wr_en = stage1_valid && (current_state == ACCUMULATE || current_state == IDLE);
-  assign fifo_rd_en = (current_state == DIVIDE_NORMALIZE) && m_axis_tready && !fifo_empty;
+  // norm_pipe_busy mirrors the exact fix already applied in scale_mask.sv
+  // (see its "pipe_busy" comment): bf16_mul (norm_multiplier) is a
+  // fixed-latency 2cc pipe with no backpressure of its own, and
+  // m_axis_tvalid/m_axis_tdata below is a single register with no FIFO
+  // behind it. Without this gate, fifo_rd_en could fire on back-to-back
+  // cycles (fifo not empty, m_axis_tready high) and launch two overlapping
+  // multiplies; if m_axis_tready then dropped for even one cycle while a
+  // second mul_valid_o pulse landed on top of an already-pending,
+  // not-yet-consumed m_axis_tvalid, that second result was silently lost
+  // -- the register only updates on "m_axis_tready || !m_axis_tvalid".
+  // Gating admission on norm_pipe_busy ensures only one element is ever in
+  // flight between the FIFO and m_axis, matching scale_mask's own fix.
+  assign fifo_rd_en = (current_state == DIVIDE_NORMALIZE) && m_axis_tready &&
+                       !fifo_empty && !norm_pipe_busy;
 
   row_fifo mem_buffer (
     .clk    (clk),
@@ -154,6 +168,17 @@ module softmax #(
               stage1_valid <= 1'b0;
           end
         end
+  end
+
+//Norm multiplier admission gate (see fifo_rd_en comment above)
+  always_ff @(posedge clk or negedge rst_n) begin
+      if (!rst_n) begin
+          norm_pipe_busy <= 1'b0;
+      end else if (fifo_rd_en) begin
+          norm_pipe_busy <= 1'b1;
+      end else if (m_axis_tvalid && m_axis_tready) begin
+          norm_pipe_busy <= 1'b0;
+      end
   end
 
 //

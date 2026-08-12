@@ -26,17 +26,27 @@ module dbuf #(
                 write_to_pong <= 1'b0;
                 write_addr    <= '0;
             end else begin
-                if (swap_buffers) begin
-                    write_to_pong <= ~write_to_pong; 
-                    write_addr    <= '0;     
-                end 
-                else if (rx_we && !rx_full) begin
+                // swap_buffers = rx_we && internal_rx_last, so it is high on
+                // the EXACT same cycle as the last element's own write. This
+                // used to be an if/else against the data write below, which
+                // meant the bank-swap branch always won and the very last
+                // element's data was silently dropped -- never written
+                // anywhere, leaving that memory word permanently X. The
+                // actual data write and the swap/address bookkeeping are
+                // independent and must both happen on this cycle.
+                if (rx_we && !rx_full) begin
                     if (write_to_pong) begin
-                        mem_pong[write_addr] <= rx_data; 
+                        mem_pong[write_addr] <= rx_data;
                     end else begin
-                        mem_ping[write_addr] <= rx_data; 
+                        mem_ping[write_addr] <= rx_data;
                     end
-                    write_addr <= write_addr + 1'b1; 
+                end
+
+                if (swap_buffers) begin
+                    write_to_pong <= ~write_to_pong;
+                    write_addr    <= '0;
+                end else if (rx_we && !rx_full) begin
+                    write_addr <= write_addr + 1'b1;
                 end
             end
     end

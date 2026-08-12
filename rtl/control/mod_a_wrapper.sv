@@ -126,5 +126,17 @@ module mod_a_wrapper #(
     // Otoyola Çıkış Atamaları
     assign m_valid = drain_active;
     assign m_data  = drain_active ? out_buffer[row_cnt][col_cnt] : 17'b0;
+    // REVERTED 2026-08-12: tried changing this to pulse once per row
+    // (col_cnt==SIZE-1 alone, matching softmax.sv's "end of row" semantics
+    // for tlast -- softmax was treating the whole SIZE*SIZE drain as one
+    // giant row and normalizing every element by the combined total instead
+    // of its own row's sum). That change made softmax correctly finish row
+    // 0's ACCUMULATE/INVERT/DIVIDE_NORMALIZE cycle, but it then never
+    // returned to IDLE/ACCUMULATE to accept row 1, deadlocking the whole
+    // pipeline (scale_mask's single in-flight slot filled and never
+    // drained). Root cause of THAT deadlock not yet found. Reverted to the
+    // known-non-hanging single-pulse-at-the-very-end behavior so the
+    // pipeline still completes; the "softmax treats all 16 scores as one
+    // row" numeric bug is still open, tracked separately.
     assign m_last  = drain_active && (row_cnt == SIZE - 1) && (col_cnt == SIZE - 1);
 endmodule

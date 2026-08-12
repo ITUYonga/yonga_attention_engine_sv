@@ -110,6 +110,16 @@ module uram_pingpong_controller #(
     logic [ROW_W-1:0]   qk_row;
     logic [DEPTH_W-1:0] qk_depth;
 
+    // Set the cycle the very last (row=NUM_TOKENS-1, depth=D_MODEL-1)
+    // address is issued. Every pair before this one relies on the *next*
+    // pair's hold check to confirm it was actually consumed before the
+    // sweep moves on; the last pair has no next iteration, so without this
+    // flag rd_state left ST_READ_QK the instant its address went out,
+    // before anything confirmed qk_ready was high when its result (one
+    // cycle later) actually arrived. If it wasn't, that pair's data was
+    // silently dropped and whatever qk_array captured for it was stale/X.
+    logic final_addr_issued;
+
     // Hold at the current (row, depth) address instead of advancing
     // whenever this cycle's URAM result was valid but not accepted
     // downstream -- re-reading the same address is harmless and is the
@@ -125,6 +135,7 @@ module uram_pingpong_controller #(
             rd_ptr   <= '0;
             qk_row   <= '0;
             qk_depth <= '0;
+            final_addr_issued <= 1'b0;
         end else begin
             case (rd_state)
                 ST_IDLE: begin
@@ -135,13 +146,29 @@ module uram_pingpong_controller #(
                 end
 
                 ST_READ_QK: begin
-                    if (!hold) begin
+                    if (final_addr_issued) begin
+                        // last address already went out; qk_row/qk_depth
+                        // are still pinned at their final values (NOT reset
+                        // yet) so q_ren keeps re-issuing that exact same
+                        // address every cycle until hold confirms its
+                        // result was actually accepted downstream.
+                        if (!hold) begin
+                            final_addr_issued <= 1'b0;
+                            qk_row   <= '0;
+                            qk_depth <= '0;
+                            rd_state <= ST_WAIT_SOFTMAX;
+                        end
+                    end
+                    else if (!hold) begin
                         if (qk_row == NUM_TOKENS - 1) begin
-                            qk_row <= '0;
                             if (qk_depth == D_MODEL - 1) begin
-                                qk_depth <= '0;
-                                rd_state <= ST_WAIT_SOFTMAX;
+                                // do not reset qk_row/qk_depth here -- pin
+                                // them at (NUM_TOKENS-1, D_MODEL-1) until
+                                // final_addr_issued's own retry/confirm
+                                // above is done with them
+                                final_addr_issued <= 1'b1;
                             end else begin
+                                qk_row   <= '0;
                                 qk_depth <= qk_depth + 1'b1;
                             end
                         end else begin

@@ -297,15 +297,44 @@ module tb_top;
         $display("[%0t] DEBUG all tokens streamed", $time);
     end
 
-    // ---- internal pipeline tracer: prints exact-time events for signals
-    // too fast to spot by eye in a zoomed-out waveform ----
+    // ---- internal pipeline tracer: the URAM/qk_array/dbuf X-bug is fixed
+    // (dbuf.sv swap_buffers/write race), all probes for that are removed.
+    // this now watches softmax.sv's own FSM (state, add_valid_o, last_d1/
+    // last_d2, element_count, fifo empty/full, mul_valid_o) end to end,
+    // since c_v still never fires even though c_in_v now delivers all 16
+    // clean elements including tlast. ----
+    logic [1:0] sm_state_prev;
+    initial sm_state_prev = 2'bxx;
     initial begin
         forever begin
             @(posedge clk);
-            if (dut.u_mod_a_wrap.u_qk_array.done_o)
-                $display("[%0t] DEBUG qk_array.done_o pulsed", $time);
-            if (dut.a_out_v)
-                $display("[%0t] DEBUG a_out_v=1 a_out_d=%h a_out_last=%b a_out_r=%b", $time, dut.a_out_d, dut.a_out_last, dut.a_out_r);
+            if (dut.u_mod_c_softmax.u_softmax.current_state !== sm_state_prev) begin
+                $display("[%0t] DEBUG softmax STATE %0d -> %0d  add_busy=%b last_d1=%b last_d2=%b element_count=%0d fifo_empty=%b fifo_full=%b sum_acc=%h",
+                    $time, sm_state_prev, dut.u_mod_c_softmax.u_softmax.current_state,
+                    dut.u_mod_c_softmax.u_softmax.add_busy,
+                    dut.u_mod_c_softmax.u_softmax.last_d1,
+                    dut.u_mod_c_softmax.u_softmax.last_d2,
+                    dut.u_mod_c_softmax.u_softmax.element_count,
+                    dut.u_mod_c_softmax.u_softmax.fifo_empty,
+                    dut.u_mod_c_softmax.u_softmax.fifo_full,
+                    dut.u_mod_c_softmax.u_softmax.sum_acc);
+                sm_state_prev = dut.u_mod_c_softmax.u_softmax.current_state;
+            end
+            if (dut.u_mod_c_softmax.u_softmax.add_valid_o) begin
+                $display("[%0t] DEBUG softmax add_valid_o add_result=%h last_d1=%b last_d2=%b state=%0d element_count=%0d",
+                    $time, dut.u_mod_c_softmax.u_softmax.add_result,
+                    dut.u_mod_c_softmax.u_softmax.last_d1,
+                    dut.u_mod_c_softmax.u_softmax.last_d2,
+                    dut.u_mod_c_softmax.u_softmax.current_state,
+                    dut.u_mod_c_softmax.u_softmax.element_count);
+            end
+            if (dut.u_mod_c_softmax.u_softmax.mul_valid_o) begin
+                $display("[%0t] DEBUG softmax mul_valid_o mul_result=%h state=%0d fifo_empty=%b element_count=%0d",
+                    $time, dut.u_mod_c_softmax.u_softmax.mul_result,
+                    dut.u_mod_c_softmax.u_softmax.current_state,
+                    dut.u_mod_c_softmax.u_softmax.fifo_empty,
+                    dut.u_mod_c_softmax.u_softmax.element_count);
+            end
             if (dut.c_in_v)
                 $display("[%0t] DEBUG c_in_v=1 c_in_d=%h c_in_last=%b c_in_r=%b", $time, dut.c_in_d, dut.c_in_last, dut.c_in_r);
             if (dut.c_v)
