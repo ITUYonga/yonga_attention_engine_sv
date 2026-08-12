@@ -74,9 +74,25 @@ By the end, seven for seven testbenches passed: the BF16 adder and multiplier, t
 
 Synthesized and implemented on a Xilinx Artix-7 (Nexys4 DDR, xc7a100t) in Vivado 2024.1, the corrected design uses 1,486 LUTs (2.34% of the device), 510 flip-flops (0.40%), and, notably, zero DSP48E1 slices and zero Block RAM tiles. Every multiply and add in this design runs on plain LUT logic, not vendor arithmetic macros, which was a deliberate choice to keep the core portable across FPGA families rather than locked to one vendor's DSP primitives.
 
+## Then we actually ran the whole chip, and it found four more bugs
+
+Every module passing its own testbench, in isolation, is not the same claim as "the assembled chip works." We knew that going in, which is why the next milestone was always a full top-level simulation: four tokens, driven in over AXI-Stream, through every stage we described above, with nothing mocked or bypassed.
+
+It found four more bugs, each one a different flavor of the same underlying lesson: a signal that is correct on every cycle except exactly one is still a bug, and that one cycle is very good at hiding from anything less than a full simulation.
+
+`dbuf.sv`'s bank-swap condition and its own data-write condition were written as mutually exclusive branches of the same `if`/`else`, and on the very last element of every packet, both conditions were true on the same clock edge. The swap branch won. The last element's data was never written anywhere, forever. Every downstream module that touched that element correctly reported it as undefined, because it was.
+
+The URAM read controller's state machine issued its last read request and moved on to the next phase in the same cycle, without ever checking whether that last request's result had actually been accepted downstream. Every other request in the sequence relied on the *next* request's retry logic to confirm it landed; the last request, by definition, had no "next" to confirm it. It usually worked. It is not supposed to be that kind of usually.
+
+An arbiter's ready signal back to softmax was wired behind a register that only became valid the cycle *after* softmax had already produced an output. Softmax could not produce its first output without that ready signal. That is a circular dependency with no way to bootstrap itself, and it deadlocked the entire chip waiting for a permission that could structurally never arrive.
+
+And softmax's own normalization stage was missing a one-element-in-flight guard that we had already found and fixed in the scale/mask stage earlier in the project, for the exact same reason: a fixed-latency multiplier with no backpressure of its own, feeding a single register with no FIFO behind it, will happily let a second result land on top of a first one nobody read yet.
+
+Four fixes later, the assembled pipeline runs the full token-in, softmax-out path to completion. No hang, no dropped data. That's the milestone we were missing. It is not, yet, the whole story: softmax currently normalizes all sixteen scores of our 4-token test as one giant row instead of four independent rows of four, because the array's "end of row" signal only fires once for the entire output tile instead of once per row. We tried the one-line fix. It traded the old deadlock for a new one we haven't root-caused yet, so it's reverted for now, logged, and next on the list. The chip runs. The numbers it produces aren't right yet. Both of those facts are true at once, and we'd rather say so than round up.
+
 ## What's still open, because a project post that hides its own limitations isn't worth much
 
-The RoPE rotation is implemented and passes a targeted correctness check, but hasn't yet been cross-checked against a full Python/NumPy golden model across many positions. GQA head mapping computes the correct index but isn't wired into the memory controller's addressing yet, so the integrated design currently exercises a single head/KV-group path. There's no weight-loading lock yet. We haven't run a full end-to-end simulation of the assembled top-level design, only every module in isolation, which is the next real milestone. And we haven't measured timing closure or maximum clock frequency at all yet.
+The RoPE rotation is implemented and passes a targeted correctness check, but hasn't yet been cross-checked against a full Python/NumPy golden model across many positions. GQA head mapping computes the correct index but isn't wired into the memory controller's addressing yet, so the integrated design currently exercises a single head/KV-group path. There's no weight-loading lock yet. Softmax normalizes across the whole score tile instead of per row, a bug described above that's now understood but not yet fixed. And we haven't measured timing closure or maximum clock frequency at all yet.
 
 ## Why the integration story matters just as much
 

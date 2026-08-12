@@ -2,6 +2,69 @@
 
 Bu dosya bilgisayar degistirirken kaldigimiz yeri not etmek icin. Guncel durum:
 
+## GUNCELLEME 12.08.2026 - deadlock/veri kaybi bugleri cozuldu, pipeline tamamlaniyor
+
+Asagidaki "SIRADAKI ADIM" bolumundeki plana gore devam edildi (done_o -> a_out_v
+-> c_in_v -> c_v zincirini tracer'la takip ederek), sirayla 4 ayri gercek bug
+bulunup duzeltildi:
+
+1. **`rtl/control/dbuf.sv`** - `swap_buffers` (= `rx_we && internal_rx_last`)
+   ile son elemanin kendi yazma islemi AYNI cycle'da tetikleniyordu, ama
+   if/else oldugu icin swap_buffers dali kazaniyor, verinin gercek yazimi
+   (`mem_ping[write_addr]<=rx_data`) hic calismiyordu. Her paketin SON
+   elemani sonsuza dek X kaliyordu bellekte. Bu, sonraki her katmanda
+   (uram_pingpong_controller, qk_array, qkv_proj ciktisi, sum_out) X olarak
+   goruntulenen sorunun asil kaynagiydi. Fix: veri yazimi ile
+   write_addr/write_to_pong bookkeeping'i artik ayri if'ler, birbirini
+   engellemiyor.
+
+2. **`rtl/control/uram_pingpong_controller.sv`** - ST_READ_QK, son (255.)
+   QK adresini verir vermez, sonucunun gercekten kabul edildigini hic
+   kontrol etmeden ST_WAIT_SOFTMAX'a geciyordu (diger butun ciftler icin
+   "bir sonraki iterasyonun hold kontrolu" bu isi zimnen yapiyordu, sonuncu
+   cift icin "bir sonraki" hic yoktu). `final_addr_issued` bayragiyla artik
+   son adres, sonucu kabul edilene (`qk_data_valid && qk_ready`) kadar
+   pinlenip tekrar tekrar okutuluyor.
+
+3. **`rtl/control/mod_a_input_arbiter.sv`** - `c_ready` (softmax'in
+   `m_axis_tready`'sine giden sinyal), `del_c_valid` (=`c_valid`'in 1-cycle
+   gecikmeli kopyasi) dalinin icine gomulmustu. Softmax ilk kez `c_valid`
+   verebilmesi icin `c_ready`'nin bir kez 1 olmasi gerekiyordu, ama
+   `c_ready` ancak softmax DAHA ONCE `c_valid` vermisse 1 olabiliyordu -
+   tavuk-yumurta deadlock. softmax INVERT/DIVIDE_NORMALIZE'a hicbir zaman
+   ilk ciktisini uretmeden giriyor, sonsuza dek orada kaliyordu. Fix:
+   `c_ready` artik dogrudan `mod_a_ready`'yi yansitiyor (gölge kaydin kendi
+   yakalama kosuluyla ayni).
+
+4. **`rtl/softmax/softmax.sv`** - `norm_multiplier` (bf16_mul, 2cc pipeline)
+   cikisinda `scale_mask.sv`'de zaten bulunup duzeltilmis olan ayni sinif
+   bug vardi: `fifo_rd_en` art arda cycle'larda tetiklenip iki mul_valid_o
+   sonucunu ust uste bindirebiliyordu, tek register olan `m_axis_tvalid`
+   ikincisini sessizce kaybediyordu. `scale_mask.sv`'nin `pipe_busy`
+   deseni `norm_pipe_busy` olarak buraya da eklendi.
+
+Bu 4 fix'ten sonra pipeline **uctan uca hic kilitlenmeden/veri kaybetmeden
+tamamlaniyor**: `c_v` 16 elemanin tamami icin tetikleniyor (4x4 skor
+matrisi), timeout yok.
+
+**Acik kalan (sayisal dogruluk, plumbing degil):** softmax, 4x4 skor
+matrisini TEK BUYUK satir olarak isliyor (16 eleman tek ACCUMULATE turu),
+oysa her satirin (4 eleman) kendi bagimsiz softmax'i olmasi lazim. Kaynak
+`mod_a_wrapper.sv`'nin `m_last` ciktisi (`row_cnt==SIZE-1 && col_cnt==SIZE-1`)
+sadece matrisin en son elemaninda 1 oluyor, satir basina degil. Bunu
+`col_cnt==SIZE-1` (satir basina) yapmayi denedik, softmax satir 0'i dogru
+bitirdi ama sonra IDLE/ACCUMULATE'e donup satir 1'i kabul etmeyi beceremedi,
+YENI bir deadlock'a yol acti (scale_mask'in tek eleman'lik pipe_busy slotu
+hic bosalmadi). Kok nedeni bulunamadi, `m_last` eski (satir-siz, sadece
+matris-sonu) haline GERI ALINDI - pipeline'in tamamlanmasini
+(deadlock'suz calismasini) korumak icin. Yani su an dogru CALISIYOR ama
+softmax'in urettigi sayisal degerler golden model ile TAM ESLESMIYOR
+(satir toplami ~4x buyuk cikiyor). Sonraki adim: once neden per-row tlast
+ikinci deadlock'a yol aciyor onu bulmak, sonra tekrar uygulamak.
+
+Ilgili commit: `1a9b18c` ("uctan uca debug: 4 gercek RTL bug'i bulundu ve
+duzeltildi"), branch `integration/attention-merge`.
+
 ## Ne yapiliyor
 
 `tb/tb_top.sv`: `rtl/top.sv` (attention_engine_top) icin uctan uca bir testbench.
